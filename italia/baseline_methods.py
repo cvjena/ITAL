@@ -16,7 +16,7 @@ class RandomRetrieval(ActiveRetrievalBase):
 
 
 
-class UncertaintySampling(ActiveRetrievalBase):
+class VarianceSampling(ActiveRetrievalBase):
     
     def __init__(self, data, queries = [], length_scale = 0.1, var = 1.0, noise = 1e-6,
                  use_correlations = False):
