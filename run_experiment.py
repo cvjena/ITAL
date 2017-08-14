@@ -100,7 +100,7 @@ if __name__ == '__main__':
         exit()
     
     # Read configuration and initialize environment
-    config, dataset, learner = utils.load_config(sys.argv[1], 'EXPERIMENT', overrides)
+    config, dataset, learner = utils.load_config(config_file, 'EXPERIMENT', overrides)
     query_classes = str(config.get('EXPERIMENT', 'query_classes', fallback = '')).split()
     if len(query_classes) == 0:
         query_classes = list(dataset.class_relevance.keys())

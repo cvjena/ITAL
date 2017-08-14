@@ -19,7 +19,7 @@ LEARNERS = {
 }
 
 
-def load_config(config_file, section, overrides = {}):
+def read_config_file(config_file, section, overrides):
     
     # Read config file
     config = configparser.ConfigParser(interpolation = ConversionInterpolation())
@@ -39,6 +39,14 @@ def load_config(config_file, section, overrides = {}):
     for k, v in overrides.items():
         config[section][k] = v
     
+    return config
+
+
+def load_config(config_file, section, overrides = {}):
+    
+    # Read config file
+    config = read_config_file(config_file, section, overrides)
+    
     # Set up dataset and learner
     dataset = config[section]['dataset']
     dataset = load_dataset(dataset, **config[dataset])
@@ -46,6 +54,17 @@ def load_config(config_file, section, overrides = {}):
     learner = LEARNERS[learner](dataset.X_train_norm, **config[learner])
     
     return config, dataset, learner
+
+
+def load_dataset_from_config(config_file, section, overrides = {}):
+    
+    # Read config file
+    config = read_config_file(config_file, section, overrides)
+    
+    # Set up dataset
+    dataset = config[section]['dataset']
+    dataset = load_dataset(dataset, **config[dataset])
+    return config, dataset
 
 
 
