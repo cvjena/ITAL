@@ -1,2 +1,2 @@
 from .ital import ITAL
-from .baseline_methods import RandomRetrieval, UncertaintySampling
+from .baseline_methods import RandomRetrieval, VarianceSampling
