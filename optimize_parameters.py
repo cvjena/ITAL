@@ -34,7 +34,21 @@ def cross_validate_gp(dataset, relevance, gp_params, n_folds = 10):
     return average_precision_score(relevance, scores)
 
 
-def optimize_gp_params(dataset, relevance, grid = default_grid, init = default_init, n_folds = 10, verbose = 1):
+def cross_validate_fewshot(dataset, relevance, gp_params, n_folds = 10):
+    
+    gp = GaussianProcess(dataset.X_train_norm, **gp_params)
+    aps = []
+    
+    kfold = StratifiedKFold(n_folds, shuffle = True, random_state = 0)
+    for train_ind, test_ind in kfold.split(dataset.X_train_norm, relevance):
+        gp.fit(test_ind, relevance[test_ind])
+        scores = gp.predict_stored(train_ind)
+        aps.append(average_precision_score(relevance[train_ind], scores))
+    
+    return np.mean(aps)
+
+
+def optimize_gp_params(dataset, relevance, grid = default_grid, init = default_init, n_folds = 10, fewshot = False, verbose = 1):
     
     param_names = list(grid.keys())
     cur_params = [init[p] for p in param_names]
@@ -44,10 +58,15 @@ def optimize_gp_params(dataset, relevance, grid = default_grid, init = default_i
     
     while True:
         
-        cur_perfs = {
-            val : cross_validate_gp(dataset, relevance, { param_names[i] : val if i == changing_param else cur_params[i] for i in range(len(param_names)) }, n_folds = n_folds) \
-            for val in grid[param_names[changing_param]]
-        }
+        cur_perfs = {}
+        for val in grid[param_names[changing_param]]:
+            cv_params ={ param_names[i] : val if i == changing_param else cur_params[i] for i in range(len(param_names)) }
+            if fewshot:
+                cur_perfs[val] = cross_validate_fewshot(dataset, relevance, cv_params, n_folds = n_folds)
+            else:
+                cur_perfs[val] = cross_validate_gp(dataset, relevance, cv_params, n_folds = n_folds)
+            if verbose > 1:
+                print('    {} = {} : {:.4f}'.format(param_names[changing_param], val, cur_perfs[val]))
         best_val = max(cur_perfs.keys(), key = lambda v: cur_perfs[v])
         
         if cur_perfs[best_val] < best_perf:
@@ -105,7 +124,10 @@ if __name__ == '__main__':
     for lbl in query_classes:
         print('--- CLASS {} ---'.format(lbl))
         relevance, _ = dataset.class_relevance[lbl]
-        lbl_best, lbl_perf = optimize_gp_params(dataset, relevance, n_folds = config.getint('EXPERIMENT', 'n_folds', fallback = 10))
+        lbl_best, lbl_perf = optimize_gp_params(dataset, relevance,
+                                                n_folds = config.getint('EXPERIMENT', 'n_folds', fallback = 10),
+                                                fewshot = config.getboolean('EXPERIMENT', 'few_shot', fallback = False),
+                                                verbose = config.getint('EXPERIMENT', 'verbosity', fallback = 1))
         best_params[lbl] = lbl_best
         best_perf[lbl] = lbl_perf
         print()
