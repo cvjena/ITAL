@@ -6,6 +6,7 @@ from .retrieval_base import ActiveRetrievalBase
 
 
 class RandomRetrieval(ActiveRetrievalBase):
+    """ Selects samples at random. """
     
     def fetch_unlabelled(self, k):
         
@@ -17,7 +18,30 @@ class RandomRetrieval(ActiveRetrievalBase):
 
 
 
+class BorderlineSampling(ActiveRetrievalBase):
+    """ Selects samples with minimum absolute predictive mean. """
+    
+    def fetch_unlabelled(self, k):
+        
+        ranking = np.argsort(np.abs(self.rel_mean))
+        ret = []
+        for i in ranking:
+            if (i not in self.relevant_ids) and (i not in self.irrelevant_ids):
+                ret.append(i)
+                if len(ret) >= k:
+                    break
+        return ret
+
+
+
 class VarianceSampling(ActiveRetrievalBase):
+    """ Selects samples with maximum predictive variance.
+    
+    If `use_correlations` is set to `True`, the covariance to other samples in the selected batch will also
+    be taken into account by computing the score of a given batch of samples as the sum of their variance
+    minus the sum of their covariance. Samples will be selected in a greedy fashion, starting with the one
+    with the highest predictive variance and extending the batch successively.
+    """
     
     def __init__(self, data, queries = [], length_scale = 0.1, var = 1.0, noise = 1e-6,
                  use_correlations = False):
@@ -57,7 +81,39 @@ class VarianceSampling(ActiveRetrievalBase):
 
 
 
+class UncertaintySampling(ActiveRetrievalBase):
+    """ Selects samples with minimum certainty
+    
+    Certainty is defined as: |mu| / sqrt(sigma^2 + sigma_noise^2)
+    
+    Reference:
+    Ashish Kapoor, Kristen Grauman, Raquel Urtasun and Trevor Darrell.
+    "Active Learning with Gaussian Processes for Object Categorization."
+    International Conference on Computer Vision (ICCV), 2007.
+    """
+    
+    def fetch_unlabelled(self, k):
+        
+        mean, variance = self.gp.predict_stored(cov_mode = 'diag')
+        ranking = np.argsort(np.abs(mean) / np.sqrt(variance + self.gp.noise))
+        ret = []
+        for i in ranking:
+            if (i not in self.relevant_ids) and (i not in self.irrelevant_ids):
+                ret.append(i)
+                if len(ret) >= k:
+                    break
+        return ret
+
+
+
 class EMOC(ActiveRetrievalBase):
+    """ Selects samples with maximum expected model output change (EMOC).
+    
+    Reference:
+    Alexander Freytag, Erik Rodner and Joachim Denzler.
+    "Selecting Influential Examples: Active Learning with Expected Model Output Changes."
+    European Conference on Computer Vision (ECCV), 2014.
+    """
     
     def fetch_unlabelled(self, k):
         

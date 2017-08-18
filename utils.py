@@ -3,7 +3,7 @@ import configparser
 
 import numpy as np
 
-from italia import ITAL, RandomRetrieval, VarianceSampling, EMOC
+from italia import *
 from datasets import load_dataset
 
 
@@ -16,7 +16,9 @@ LEARNERS = {
     'ITAL'  : ITAL,
     'EMOC'  : EMOC,
     'random': RandomRetrieval,
-    'var'   : VarianceSampling
+    'border': BorderlineSampling,
+    'var'   : VarianceSampling,
+    'unc'   : UncertaintySampling
 }
 
 
@@ -48,11 +50,16 @@ def load_config(config_file, section, overrides = {}):
     # Read config file
     config = read_config_file(config_file, section, overrides)
     
-    # Set up dataset and learner
+    # Set up dataset
     dataset = config[section]['dataset']
     dataset = load_dataset(dataset, **config[dataset])
+    
+    # Set up learner
     learner = config[section]['method']
-    learner = LEARNERS[learner](dataset.X_train_norm, **config[learner])
+    learner_config = dict(config['METHOD_DEFAULTS']) if 'METHOD_DEFAULTS' in config else dict()
+    if learner in config:
+        learner_config.update(config[learner])
+    learner = LEARNERS[learner](dataset.X_train_norm, **learner_config)
     
     return config, dataset, learner
 
