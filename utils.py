@@ -3,7 +3,7 @@ import configparser
 
 import numpy as np
 
-from italia import ITAL, RandomRetrieval, VarianceSampling
+from italia import ITAL, RandomRetrieval, VarianceSampling, EMOC
 from datasets import load_dataset
 
 
@@ -13,9 +13,10 @@ from datasets import load_dataset
 
 
 LEARNERS = {
-    'ITAL' : ITAL,
-    'random' : RandomRetrieval,
-    'var' : VarianceSampling
+    'ITAL'  : ITAL,
+    'EMOC'  : EMOC,
+    'random': RandomRetrieval,
+    'var'   : VarianceSampling
 }
 
 
