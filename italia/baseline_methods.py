@@ -86,9 +86,9 @@ class EMOC(ActiveRetrievalBase):
         alpha_diff_pos = (( 1 - mean) / denom)[:,None] * k_diff
         alpha_diff_neg = ((-1 - mean) / denom)[:,None] * k_diff
         
-        # Compute MOC (model output change) for all candidates and both possible labels as u-by-2 matrices
+        # Compute MOC (model output change) for all candidates and both possible labels as u-by-2 matrix
         moc = np.array([
-            np.dot(np.vstack((ad_pos, ad_neg)), self.gp.K_all[np.r_[self.gp.ind, [i]], :]).mean(axis = -1) \
+            np.abs(np.dot(np.vstack((ad_pos, ad_neg)), self.gp.K_all[np.r_[self.gp.ind, [i]], :])).mean(axis = -1) \
             for i, ad_pos, ad_neg in zip(ind, alpha_diff_pos, alpha_diff_neg)
         ])
         
