@@ -4,6 +4,8 @@ import numpy as np
 from sklearn.metrics import average_precision_score
 from tqdm import tqdm, trange
 
+from collections import OrderedDict
+
 import utils
 
 
@@ -114,7 +116,7 @@ if __name__ == '__main__':
         import matplotlib.pyplot as plt
     
     # Run multiple active retrieval rounds for each class
-    aps, ndcgs = {}, {}
+    aps, ndcgs = OrderedDict(), OrderedDict()
     for lbl in tqdm(query_classes, desc = 'Classes', leave = False, dynamic_ncols = True):
         relevance, test_relevance = dataset.class_relevance[lbl]
         aps[lbl] = []
@@ -150,17 +152,24 @@ if __name__ == '__main__':
             ndcgs[lbl].append(it_ndcgs)
     
     # Print mean and standard deviation for all iterations
-    aps_mat = np.concatenate(list(aps.values()))
-    ndcgs_mat = np.concatenate(list(ndcgs.values()))
-    median_ap = np.median(aps_mat, axis = 0)
-    median_ndcg = np.median(ndcgs_mat, axis = 0)
-    mean_ap = aps_mat.mean(axis = 0)
-    mean_ndcg = ndcgs_mat.mean(axis = 0)
-    sd_ap = aps_mat.std(axis = 0)
-    sd_ndcg = ndcgs_mat.std(axis = 0)
-    print('Round;Median_AP;Mean_AP;AP_SD;Median_NDCG;Mean_NDCG;NDCG_SD')
-    for i in range(len(mean_ap)):
-        print('{};{:.4f};{:.4f};{:.4f};{:.4f};{:.4f};{:.4f}'.format(i, median_ap[i], mean_ap[i], sd_ap[i], median_ndcg[i], mean_ndcg[i], sd_ndcg[i]))
+    if config.get('EXPERIMENT', 'avg_class_perf', fallback = True):
+        aps_mat = OrderedDict([('Overall Performance', np.concatenate(list(aps.values())))])
+        ndcgs_mat = OrderedDict([('Overall Performance', np.concatenate(list(ndcgs.values())))])
+    else:
+        aps_mat = aps
+        ndcgs_mat = ndcgs
+    for lbl in aps_mat.keys():
+        if len(aps_mat) > 1:
+            print('\n{}\n{:-<{}}\n'.format(lbl if isinstance(lbl, str) else 'Class {}'.format(lbl), '', len(lbl) if isinstance(lbl, str) else len(str(lbl)) + 6))
+        median_ap = np.median(aps_mat[lbl], axis = 0)
+        median_ndcg = np.median(ndcgs_mat[lbl], axis = 0)
+        mean_ap = np.mean(aps_mat[lbl], axis = 0)
+        mean_ndcg = np.mean(ndcgs_mat[lbl], axis = 0)
+        sd_ap = np.std(aps_mat[lbl], axis = 0)
+        sd_ndcg = np.std(ndcgs_mat[lbl], axis = 0)
+        print('Round;Median_AP;Mean_AP;AP_SD;Median_NDCG;Mean_NDCG;NDCG_SD')
+        for i in range(len(mean_ap)):
+            print('{};{:.4f};{:.4f};{:.4f};{:.4f};{:.4f};{:.4f}'.format(i, median_ap[i], mean_ap[i], sd_ap[i], median_ndcg[i], mean_ndcg[i], sd_ndcg[i]))
     
     # Plot AP histogram
     if plot_hist:
