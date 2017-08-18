@@ -1,4 +1,4 @@
-import sys, math
+import sys
 
 import numpy as np
 from sklearn.metrics import average_precision_score
@@ -21,59 +21,6 @@ def simulate_feedback(labels, ret, label_prob = 0.8, mistake_prob = 0.05):
         else:
             fb.append(-1)
     return fb
-
-
-def ndcg(y_true, y_score):
-    
-    num_relevant = sum(yt > 0 for yt in y_true)
-    retrieved = np.argsort(y_score)[::-1]
-    
-    rank, cgain, normalizer = 0, 0.0, 0.0
-    for ret in retrieved:
-        rank += 1
-        gain = 1.0 / math.log2(rank + 1)
-        if y_true[ret] > 0:
-            cgain += gain
-        if rank <= num_relevant:
-            normalizer += gain
-    
-    return cgain / normalizer
-
-
-def plot_learning_step(dataset, query, relevance, learner, ret, fb):
-    
-    if dataset.imgs_train is not None:
-    
-        cols = max(10, len(ret))
-        fig, axes = plt.subplots(6, cols, figsize = (cols, 6))
-        axes[0,0].imshow(dataset.imgs_train[query], interpolation = 'bicubic', cmap = plt.cm.gray)
-        for r, ax in zip(ret, axes[1]):
-            ax.imshow(dataset.imgs_train[r], interpolation = 'bicubic', cmap = plt.cm.gray)
-        top_ret = np.argsort(learner.rel_mean)[::-1][:cols*(len(axes)-2)]
-        for r, ax in zip(top_ret, axes[2:].ravel()):
-            ax.imshow(dataset.imgs_train[r], interpolation = 'bicubic', cmap = plt.cm.gray)
-        for ax in axes.ravel():
-            ax.axis('off')
-        fig.tight_layout()
-        plt.show()
-    
-    elif dataset.X_train.shape[1] == 2:
-    
-        fig, axes = plt.subplots(2, 2, figsize = (10, 7))
-        axes[0,0].set_title('Active Learning Batch')
-        axes[0,1].set_title('Labelled Examples')
-        axes[1,0].set_title('Relevance Distribution')
-        axes[1,1].set_title('Retrieval')
-        utils.plot_data(dataset.X_train, relevance, dataset.X_train[query], ret, axes[0,0])
-        utils.plot_data(dataset.X_train, relevance, dataset.X_train[query], [r for i, r in enumerate(ret) if fb[i] != 0], axes[0,1])
-        utils.plot_distribution(dataset.X_train, learner.rel_mean, dataset.X_train[query], axes[1,0])
-        utils.plot_data(dataset.X_train, relevance, dataset.X_train[query], np.argsort(learner.rel_mean)[::-1][:np.sum(relevance > 0)], axes[1,1])
-        fig.tight_layout()
-        plt.show()
-    
-    else:
-    
-        raise RuntimeError("Don't know how to plot this dataset.")
 
 
 
@@ -131,7 +78,7 @@ if __name__ == '__main__':
             it_aps, it_ndcgs = [], []
             test_scores = learner.gp.predict(dataset.X_test_norm)
             it_aps.append(average_precision_score(test_relevance, test_scores))
-            it_ndcgs.append(ndcg(test_relevance, test_scores))
+            it_ndcgs.append(utils.ndcg(test_relevance, test_scores))
             
             for r in trange(config.getint('EXPERIMENT', 'rounds', fallback = 10), desc = 'Feedback rounds', leave = False, dynamic_ncols = True):
                 
@@ -143,10 +90,10 @@ if __name__ == '__main__':
                 
                 test_scores = learner.gp.predict(dataset.X_test_norm)
                 it_aps.append(average_precision_score(test_relevance, test_scores))
-                it_ndcgs.append(ndcg(test_relevance, test_scores))
+                it_ndcgs.append(utils.ndcg(test_relevance, test_scores))
                 
                 if plot:
-                    plot_learning_step(dataset, query, relevance, learner, ret, fb)
+                    utils.plot_learning_step(dataset, query, relevance, learner, ret, fb)
             
             aps[lbl].append(it_aps)
             ndcgs[lbl].append(it_ndcgs)
