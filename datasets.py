@@ -88,6 +88,23 @@ class LeafDataset(Dataset):
 
 
 
+class ButterflyDataset(Dataset):
+    
+    def __init__(self, data_file, **kwargs):
+        
+        data = np.load(data_file)
+        self.X_train, self.y_train = data['X_train'], data['y_train']
+        self.X_test, self.y_test = data['X_test'], data['y_test']
+        
+        self.X = np.concatenate((self.X_train, self.X_test))
+        self.y = np.concatenate((self.y_train, self.y_test))
+        
+        self.imgs = self.imgs_train = self.imgs_test = None
+        
+        self._preprocess()
+
+
+
 class USPSDataset(Dataset):
     
     def __init__(self, train_data_file, test_data_file, **kwargs):
