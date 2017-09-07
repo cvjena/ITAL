@@ -10,17 +10,21 @@ def extend_inv(K, inv, inv_ind, new_ind, diag_noise = 0):
     of a subset `K1` of this matrix `K`. This function computes the inverse `K2_inv = inv(K[inv_ind+new_ind][:,inv_ind+new_ind])`
     of an extension of `K1` with new data using the pre-computed `K1_inv`.
     
-    K - The full kernel matrix.
     
-    inv - The pre-computed inverse `K1_inv`.
+    # Arguments:
     
-    inv_ind - Vector of indices in `K` which define the subset of data present in `K1`.
+    - K: the full kernel matrix.
     
-    new_ind - Vector of indices to be added to the pre-computed inverse.
+    - inv: the pre-computed inverse `K1_inv`.
     
-    diag_noise - Regularizer added to the diagonal.
+    - inv_ind: vector of indices in `K` which define the subset of data present in `K1`.
     
-    Returns: `K2_inv`
+    - new_ind: vector of indices to be added to the pre-computed inverse.
+    
+    - diag_noise: regularizer added to the diagonal.
+    
+    # Returns:
+        `K2_inv`
     """
 
     ind = np.concatenate((inv_ind, new_ind))
@@ -51,9 +55,30 @@ def extend_inv(K, inv, inv_ind, new_ind, diag_noise = 0):
 
 
 class GaussianProcess(object):
-    """ GP according to Eq. 2.23 and 2.24 in the GP bible. """
+    """ GP according to Eq. 2.23 and 2.24 in the GP bible.
+    
+    This implementation computes the kernel matrix of the entire data set once at
+    the beginning to avoid redundant distance and kernel value computations.
+    Thus, it is necessary to pass the entire data array to the constructor and
+    referring to training and testing samples by their indices in that array.
+    
+    The kernel used by this GP is:
+    `k(x_i, x_j) = var * exp(-||x_i - x_j||^2 / (2*sigma^2)) + sigma_noise * (i==j)`
+    """
     
     def __init__(self, data, length_scale, var = 1.0, noise = 1e-6):
+        """ Initializes the Gaussian Process.
+        
+        # Arguments:
+        
+        - data: entire dataset given as n-by-d array of n d-dimensional samples.
+        
+        - length_scale: the `sigma` hyper-parameter of the kernel.
+        
+        - var: the `var` hyper-parameter of the kernel.
+        
+        - noise: the `sigma_noise` hyper-parameter of the kernel.
+        """
         
         self.X = np.array(data)
         self.length_scale = length_scale
@@ -66,6 +91,7 @@ class GaussianProcess(object):
     
     
     def reset(self):
+        """ Resets the GP to its initial state directly after __init__. """
         
         self.ind = []
         self.y = self.K = self.K_inv = self.w = None
@@ -74,6 +100,17 @@ class GaussianProcess(object):
     
     
     def fit(self, ind, y):
+        """ Fits the GP to a subset of the data passed to __init__.
+        
+        # Arguments:
+        
+        - ind: list of indices in the data matrix.
+        
+        - y: target values of the samples referred to by ind.
+        
+        # Returns:
+            self
+        """
         
         self.ind = [i for i in ind]
         self.y = np.array(y)
@@ -86,6 +123,20 @@ class GaussianProcess(object):
     
     
     def update(self, ind, y):
+        """ Updates the GP with new data (incremental fitting).
+        
+        If fit() has not been after the last call to __init__() or reset(),
+        the effect of this method equals that of fit().
+        
+        # Arguments:
+        
+        - ind: list of indices in the data matrix.
+        
+        - y: target values of the samples referred to by ind.
+        
+        # Returns:
+            self
+        """
         
         if len(self.ind) == 0:
             return self.fit(ind, y)
@@ -166,13 +217,6 @@ class GaussianProcess(object):
         if cache_key in self._inv_cache:
             K_inv = self._inv_cache[cache_key]
         else:
-            #K_old_new = self.K_all[np.ix_(self.ind, ind)]
-            #K_new = self.K_all[np.ix_(ind, ind)] + self.noise * np.eye(len(ind))
-            #K = np.vstack((
-            #    np.hstack((self.K, K_old_new)),
-            #    np.hstack((K_old_new.T, K_new))
-            #))
-            #K_inv = np.linalg.inv(K)
             K_inv = extend_inv(self.K_all, self.K_inv, self.ind, ind, self.noise)
             self._inv_cache[cache_key] = K_inv.copy()
         

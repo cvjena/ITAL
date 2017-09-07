@@ -8,6 +8,16 @@ from scipy.stats import multivariate_normal as mvn
 
 
 def load_dataset(dataset_name, **kwargs):
+    """ Instantiates a dataset by its name.
+    
+    # Arguments:
+    - dataset_name: The name of the dataset. Appending 'Dataset' to it should result in the name of the class to be intantiated.
+    
+    Additional arguments will be passed through to the constructor of the dataset.
+    
+    # Returns:
+        object
+    """
     
     class_name = dataset_name + 'Dataset'
     if class_name not in globals():
@@ -17,8 +27,49 @@ def load_dataset(dataset_name, **kwargs):
 
 
 class Dataset(object):
+    """ A dataset.
+    
+    # Properties:
+    
+    - X: array of all samples.
+    
+    - y: array with labels of all samples.
+    
+    - X_train: array with training data.
+    
+    - y_train: array with training labels.
+    
+    - X_test: array with validation data.
+    
+    - y_test: array with validation labels.
+    
+    - X_max: maximum value in X_train.
+    
+    - X_min: minimum value in X_train.
+    
+    - X_train_norm: X_train scaled to [0,1].
+    
+    - X_test_norm: X_test scaled by the same parameters used to obtain X_train_norm.
+    
+    - labels: list of unique labels.
+    
+    - class_relevance: dictionary mapping labels to arrays specifying whether a sample
+                       is relevant for that label. Class relevance is given as 1 or -1.
+    """
     
     def __init__(self, X, y, test_size = 0.2):
+        """ Initializes a dataset from given data, automatically splitting it into training and validation set.
+        
+        # Arguments:
+        
+        - X: array of all samples.
+        
+        - y: array with labels of all samples.
+        
+        - test_size: either a float specifying the fraction of the data to be used for
+                     validation or an integer specifying the absolute number of
+                     validation samples.
+        """
         
         self.X = np.array(X)
         self.y = np.array(y)
@@ -31,6 +82,7 @@ class Dataset(object):
     
     
     def _preprocess(self):
+        """ Computes X_max, X_min, X_train_norm, X_test_norm, labels, and class_relevance. """
         
         self.X_max, self.X_min = self.X_train.max(), self.X_train.min()
         self.X_train_norm = (self.X_train - self.X_min) / (self.X_max - self.X_min)
@@ -41,9 +93,38 @@ class Dataset(object):
 
 
 
+class StoredDataset(Dataset):
+    """ Loads a dataset from a numpy file. """
+    
+    def __init__(self, data_file, **kwargs):
+        """ Loads the dataset.
+        
+        # Arguments:
+        - data_file: path to a .npz file containing X_train, y_train, X_test, and y_test.
+        """
+        
+        data = np.load(data_file)
+        self.X_train, self.y_train = data['X_train'], data['y_train']
+        self.X_test, self.y_test = data['X_test'], data['y_test']
+        
+        self.X = np.concatenate((self.X_train, self.X_test))
+        self.y = np.concatenate((self.y_train, self.y_test))
+        
+        self.imgs = self.imgs_train = self.imgs_test = None
+        
+        self._preprocess()
+
+
+
 class ToyDataset(Dataset):
+    """ Generates a toy dataset. """
     
     def __init__(self, size_factor = 10, test_size = 0.5, **kwargs):
+        """ Initializes the dataset.
+        
+        # Arguments:
+        - size_factor: controls to size of the dataset, which will be 17 * size_factor.
+        """
         
         np.random.seed(0)
         X = np.concatenate([
@@ -60,6 +141,7 @@ class ToyDataset(Dataset):
 
 
 class IrisDataset(Dataset):
+    """ Interface to the Iris dataset. """
     
     def __init__(self, **kwargs):
         
@@ -69,8 +151,17 @@ class IrisDataset(Dataset):
 
 
 class WineDataset(Dataset):
+    """ Interface to the UCI Wine dataset.
+    
+    https://archive.ics.uci.edu/ml/datasets/wine
+    """
     
     def __init__(self, data_file, **kwargs):
+        """ Loads the Wine dataset.
+        
+        # Arguments:
+        - data_file: path to wine.data.
+        """
         
         X = np.loadtxt(data_file, delimiter = ',', dtype = float)[:,1:]
         y = np.loadtxt(data_file, delimiter = ',', dtype = int, usecols = 0)
@@ -79,8 +170,17 @@ class WineDataset(Dataset):
 
 
 class LeafDataset(Dataset):
+    """ Interface to the UCI Leaf dataset.
+    
+    https://archive.ics.uci.edu/ml/datasets/leaf
+    """
     
     def __init__(self, data_file, test_size = 0.5, **kwargs):
+        """ Loads the Wine dataset.
+        
+        # Arguments:
+        - data_file: path to leaf.csv.
+        """
         
         X = np.loadtxt(data_file, delimiter = ',', dtype = float)[:,2:]
         y = np.loadtxt(data_file, delimiter = ',', dtype = int, usecols = 0)
@@ -88,26 +188,19 @@ class LeafDataset(Dataset):
 
 
 
-class ButterflyDataset(Dataset):
-    
-    def __init__(self, data_file, **kwargs):
-        
-        data = np.load(data_file)
-        self.X_train, self.y_train = data['X_train'], data['y_train']
-        self.X_test, self.y_test = data['X_test'], data['y_test']
-        
-        self.X = np.concatenate((self.X_train, self.X_test))
-        self.y = np.concatenate((self.y_train, self.y_test))
-        
-        self.imgs = self.imgs_train = self.imgs_test = None
-        
-        self._preprocess()
-
-
-
 class USPSDataset(Dataset):
+    """ Interface to the USPS dataset.
+    
+    https://www-i6.informatik.rwth-aachen.de/~keysers/usps.html
+    """
     
     def __init__(self, train_data_file, test_data_file, **kwargs):
+        """ Loads the USPS dataset.
+        
+        # Arguments:
+        - train_data_file: path to usps_train.jf.
+        - test_data_file: path to usps_test.jf.
+        """
         
         self.X_train, self.y_train = self._read_usps(train_data_file)
         self.X_test, self.y_test = self._read_usps(test_data_file)

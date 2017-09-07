@@ -31,14 +31,17 @@ def read_config_file(config_file, section, overrides):
     or boolean. It also handles the special "import" option that can be used to specify
     a white-space separated list of other config files to be read before this one.
     
-    config_file - Path to the config file.
+    # Arguments:
     
-    section - Name of the section to search for "import" options in and to apply overrides to.
+    - config_file: path to the config file.
     
-    overrides - Dictionary with options overriding the ones read from the config file in the
-                section given by `section`.
+    - section: name of the section to search for "import" options in and to apply overrides to.
     
-    Returns: a configparser.ConfigParser instance.
+    - overrides: dictionary with options overriding the ones read from the config file in the
+                 section given by `section`.
+    
+    # Returns:
+        a configparser.ConfigParser instance.
     """
     
     # Read config file
@@ -68,7 +71,8 @@ def load_config(config_file, section, overrides = {}):
     See `read_config_file` for information about the format of the config file
     and the arguments of this function.
     
-    Returns: a (configparser.ConfigParser, datasets.Dataset, italia.retrieval_base.ActiveRetrievalBase) tuple.
+    # Returns:
+        a (configparser.ConfigParser, datasets.Dataset, italia.retrieval_base.ActiveRetrievalBase) tuple.
     """
     
     # Read config file
@@ -94,7 +98,8 @@ def load_dataset_from_config(config_file, section, overrides = {}):
     See `read_config_file` for information about the format of the config file
     and the arguments of this function.
     
-    Returns: a (configparser.ConfigParser, datasets.Dataset) tuple.
+    # Returns:
+        a (configparser.ConfigParser, datasets.Dataset) tuple.
     """
     
     # Read config file
@@ -140,11 +145,14 @@ class ConversionInterpolation(configparser.BasicInterpolation):
 def ndcg(y_true, y_score):
     """ Computes the Normalized Discounted Cumulative Gain (NDCG) of given retrieval results.
     
-    y_true - Ground-truth relevance labels of the retrieved samples.
+    # Arguments:
     
-    y_score - Predicted relevance scores of the retrieved samples.
+    - y_true: ground-truth relevance labels of the retrieved samples.
     
-    Returns: float
+    - y_score: predicted relevance scores of the retrieved samples.
+    
+    # Returns:
+        float
     """
     
     num_relevant = sum(yt > 0 for yt in y_true)
@@ -170,17 +178,18 @@ def ndcg(y_true, y_score):
 def plot_data(data, relevance, query = None, retrieved = None, ax = None):
     """ Plots a 2-dimensional dataset.
     
-    data - n-by-2 data array of n 2-dimensional samples.
+    # Arguments:
+    - data: n-by-2 data array of n 2-dimensional samples.
     
-    relevance - Vector of length n specifying the relevance of the samples
-                (entries equal to 1 are considered relevant).
+    - relevance: vector of length n specifying the relevance of the samples
+                 (entries equal to 1 are considered relevant).
     
-    query - Optionally, a query vector with 2 elements.
+    - query: optionally, a query vector with 2 elements.
     
-    retrieved - Optionally, a list of indices of retrieved samples.
+    - retrieved: optionally, a list of indices of retrieved samples.
     
-    ax - The Axis instance to draw the plot on. If `None`, the global pyplot
-         object will be used.
+    - ax: the Axis instance to draw the plot on. If `None`, the global pyplot
+          object will be used.
     """
     
     import matplotlib.pyplot as plt
@@ -208,14 +217,16 @@ def plot_data(data, relevance, query = None, retrieved = None, ax = None):
 def plot_distribution(data, prob, query = None, ax = None):
     """ Plots the estimated relevance scores of a 2-dimensional dataset.
     
-    data - n-by-2 data array of n 2-dimensional samples.
+    # Arguments:
     
-    prob - Vector of length n containing the estimated relevance scores of the samples.
+    - data: n-by-2 data array of n 2-dimensional samples.
     
-    query - Optionally, a query vector with 2 elements.
+    - prob: vector of length n containing the estimated relevance scores of the samples.
     
-    ax - The Axis instance to draw the plot on. If `None`, the global pyplot
-         object will be used.
+    - query: optionally, a query vector with 2 elements.
+    
+    - ax: the Axis instance to draw the plot on. If `None`, the global pyplot
+          object will be used.
     """
     
     import matplotlib.pyplot as plt
@@ -235,16 +246,18 @@ def plot_distribution(data, prob, query = None, ax = None):
 def plot_dist_and_topk(data, relevance, prob, query = None, k = 25):
     """ Plots and shows the estimated relevance scores and the top k retrieved samples of a 2-dimensional dataset.
     
-    data - n-by-2 data array of n 2-dimensional samples.
+    # Arguments:
     
-    relevance - Vector of length n specifying the relevance of the samples
+    - data: n-by-2 data array of n 2-dimensional samples.
+    
+    - relevance: Vector of length n specifying the relevance of the samples
                 (entries equal to 1 are considered relevant).
     
-    prob - Vector of length n containing the estimated relevance scores of the samples.
+    - prob: Vector of length n containing the estimated relevance scores of the samples.
     
-    query - Optionally, a query vector with 2 elements.
+    - query: Optionally, a query vector with 2 elements.
     
-    k - The number of top retrieved samples to be shown.
+    - k: the number of top retrieved samples to be shown.
     """
     
     import matplotlib.pyplot as plt
@@ -269,18 +282,20 @@ def plot_learning_step(dataset, query, relevance, learner, ret, fb):
       scores of the entire dataset after updating the learner, and the top few samples retrieved
       using that updated classifier.
     
-    dataset - A datasets.Dataset instance.
+    # Arguments:
     
-    query - The index of the query image in dataset.X_train.
+    - dataset: a datasets.Dataset instance.
     
-    relevance - The ground-truth relevance labels of all samples in dataset.X_train.
+    - query: the index of the query image in dataset.X_train.
     
-    learner - An italia.retrieval_base.ActiveRetrievalBase instance.
+    - relevance: the ground-truth relevance labels of all samples in dataset.X_train.
     
-    ret - The indices of the samples selected for the current active learning batch.
+    - learner: an italia.retrieval_base.ActiveRetrievalBase instance.
     
-    fb - A list of feedback provided for each sample in the current batch. Possible feedback values
-         are -1 (irrelevant), 1 (relevant) or 0 (no feedback).
+    - ret: the indices of the samples selected for the current active learning batch.
+    
+    - fb: a list of feedback provided for each sample in the current batch. Possible feedback values
+          are -1 (irrelevant), 1 (relevant) or 0 (no feedback).
     """
     
     import matplotlib.pyplot as plt
