@@ -179,6 +179,7 @@ def plot_data(data, relevance, query = None, retrieved = None, ax = None):
     """ Plots a 2-dimensional dataset.
     
     # Arguments:
+    
     - data: n-by-2 data array of n 2-dimensional samples.
     
     - relevance: vector of length n specifying the relevance of the samples

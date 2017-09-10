@@ -162,6 +162,22 @@ class GaussianProcess(object):
     
     
     def predict_stored(self, ind = None, cov_mode = None):
+        """ Computes predictive mean and (optionally) variance or covariance for samples from the data matrix passed to __init__().
+        
+        # Arguments:
+        
+        - ind: list of n indices in the data matrix to make predictions for.
+        
+        - cov_mode: one of the following values:
+            - None: only predict mean
+            - 'diag': predict variance for each samples
+            - 'full': predict a full covariance matrix for the given samples
+        
+        # Returns:
+            - If cov_mode is None: a length-n vector of predictive means.
+            - If cov_mode is 'diag': a tuple of two length-n vectors with predictive means and variances.
+            - If cov_mode is 'full': a tuple of a length-n vector with predictive means and a n-by-n covariance matrix.
+        """
         
         k_test = self.K_all[self.ind] if ind is None else self.K_all[np.ix_(self.ind, ind)]
         pred_mean = np.dot(self.w.T, k_test)
@@ -178,6 +194,19 @@ class GaussianProcess(object):
     
     
     def predict_cov_batch(self, base_ind, ind):
+        """ Makes a batch of covariance predictions for a set of base samples extended by a single one of a batch of other samples.
+        
+        This is equivalent to `np.stack([predict_stored(np.concatenate([base_ind, [i]]), cov_mode='full')[1] for i in ind])`, but more efficient.
+        
+        # Arguments:
+        
+        - base_ind: list of n-1 indices of base samples in the data matrix.
+        
+        - ind: list of k indices of batch samples in the data matrix.
+        
+        # Returns:
+            k-by-n-by-n array of covariance matrices.
+        """
         
         k_base = self.K_all[np.ix_(self.ind, base_ind)]
         cov_base = self.K_all[np.ix_(base_ind, base_ind)] - np.dot(k_base.T, np.dot(self.K_inv, k_base))
@@ -194,6 +223,22 @@ class GaussianProcess(object):
     
     
     def predict(self, X, cov_mode = None):
+        """ Computes predictive mean and (optionally) variance or covariance for given samples.
+        
+        # Arguments:
+        
+        - X: n-by-d matrix of samples to predict mean and variance for.
+        
+        - cov_mode: one of the following values:
+            - None: only predict mean
+            - 'diag': predict variance for each samples
+            - 'full': predict a full covariance matrix for the given samples
+        
+        # Returns:
+            - If cov_mode is None: a length-n vector of predictive means.
+            - If cov_mode is 'diag': a tuple of two length-n vectors with predictive means and variances.
+            - If cov_mode is 'full': a tuple of a length-n vector with predictive means and a n-by-n covariance matrix.
+        """
         
         k_test = self.kernel(X)
         pred_mean = np.dot(self.w.T, k_test)
@@ -209,6 +254,26 @@ class GaussianProcess(object):
     
     
     def updated_prediction(self, ind, y, pred_ind, cov_mode = None):
+        """ Obtains a prediction for a set of samples after an update of the GP with new data, but without actually updating it.
+        
+        # Arguments:
+        
+        - ind: list of indices of update samples in the data matrix.
+        
+        - y: target values of the samples referred to by ind.
+        
+        - pred_ind: list of n indices in the data matrix to make predictions for.
+        
+        - cov_mode: one of the following values:
+            - None: only predict mean
+            - 'diag': predict variance for each samples
+            - 'full': predict a full covariance matrix for the given samples
+        
+        # Returns:
+            - If cov_mode is None: a length-n vector of predictive means.
+            - If cov_mode is 'diag': a tuple of two length-n vectors with predictive means and variances.
+            - If cov_mode is 'full': a tuple of a length-n vector with predictive means and a n-by-n covariance matrix.
+        """
         
         y = np.asarray(y)
         cache_key = tuple(ind)
@@ -240,7 +305,15 @@ class GaussianProcess(object):
             return pred_mean
     
     
-    def kernel(self, a, b = None, add_noise = False):
+    def kernel(self, a, b = None):
+        """ Evaluates the kernel function of this GP.
+        
+        `kernel(X, Y)` with n-by-d and m-by-d data matrices X and Y will compute an
+        n-by-m kernel matrix K with `K[i,j] = kernel(X[i], Y[i])`.
+        
+        `kernel(Y)` will compute `kernel(self.X, Y)`, where `self.X` refers to the
+        data matrix passed to __init__().
+        """
         
         if b is None:
             b, a = a, self.X[self.ind]
