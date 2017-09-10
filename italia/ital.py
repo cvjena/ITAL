@@ -16,7 +16,7 @@ class ITAL(ActiveRetrievalBase):
                  label_prob = 0.2, mistake_prob = 0.05,
                  monte_carlo_num_rel = None, monte_carlo_num_fb = None,
                  context_subset = None, parallelized = True):
-         """
+        """
         # Arguments:
         
         - data: entire dataset given as n-by-d array of n d-dimensional samples.
