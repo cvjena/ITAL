@@ -126,13 +126,17 @@ class EntropySampling(ActiveRetrievalBase):
         rel_mean = rel_mean[:len(self.data)]
         rel_var = rel_var[:len(self.data),]
         
-        ret = [max(range(rel_mean.size), key = lambda i: self.single_entropy(rel_mean[i], rel_var[i]) if (i not in self.relevant_ids) and (i not in self.irrelevant_ids) else -np.inf)]
+        candidates = [i for i in range(rel_mean.size) if (i not in self.relevant_ids) and (i not in self.irrelevant_ids)]
+        max_ind = max(range(len(candidates)), key = lambda i: self.single_entropy(rel_mean[candidates[i]], rel_var[candidates[i]]))
+        ret = [candidates[max_ind]]
+
         for l in range(1, k):
-            candidates = [i for i in range(rel_mean.size) if (i not in self.relevant_ids) and (i not in self.irrelevant_ids) and (i not in ret)]
+            del candidates[max_ind]
             if len(candidates) == 0:
                 break
             covs = self.gp.predict_cov_batch(ret, candidates)
-            ret.append(max(candidates, key = lambda i: self.batch_entropy(rel_mean[ret+[i]], covs[i])))
+            max_ind = max(range(len(candidates)), key = lambda i: self.batch_entropy(rel_mean[ret+[candidates[i]]], covs[i]))
+            ret.append(candidates[max_ind])
         
         return ret
     
