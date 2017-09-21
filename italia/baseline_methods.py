@@ -1,6 +1,8 @@
 import numpy as np
 import scipy.stats
 
+import itertools
+
 from .retrieval_base import ActiveRetrievalBase
 
 
@@ -103,6 +105,60 @@ class UncertaintySampling(ActiveRetrievalBase):
                 if len(ret) >= k:
                     break
         return ret
+
+
+
+class EntropySampling(ActiveRetrievalBase):
+    """ Selects batches of samples with maximum entropy.
+    
+    Reference:
+    Ksenia Konyushkova, Raphael Sznitman and Pascal Fua.
+    "Geometry in Active Learning for Binary and Multi-class Image Segmentation."
+    arXiv:1606.09029v2.
+    
+    For batch sampling, this implementation uses the joint distribution of the samples in the
+    batch for computing the batch entropy.
+    """
+    
+    def fetch_unlabelled(self, k):
+        
+        rel_mean, rel_var = self.gp.predict_stored(cov_mode = 'diag')
+        rel_mean = rel_mean[:len(self.data)]
+        rel_var = rel_var[:len(self.data),]
+        
+        ret = [max(range(rel_mean.size), key = lambda i: self.single_entropy(rel_mean[i], rel_var[i]) if (i not in self.relevant_ids) and (i not in self.irrelevant_ids) else -np.inf)]
+        for l in range(1, k):
+            candidates = [i for i in range(rel_mean.size) if (i not in self.relevant_ids) and (i not in self.irrelevant_ids) and (i not in ret)]
+            if len(candidates) == 0:
+                break
+            covs = self.gp.predict_cov_batch(ret, candidates)
+            ret.append(max(candidates, key = lambda i: self.batch_entropy(rel_mean[ret+[i]], covs[i])))
+        
+        return ret
+    
+    
+    def single_entropy(self, mean, var):
+        
+        prob_irr = max(1e-8, min(1.0 - 1e-8, scipy.stats.norm.cdf(0, mean, np.sqrt(var))))
+        return -1 * (prob_irr * np.log(prob_irr) + (1.0 - prob_irr) * np.log(1.0 - prob_irr))
+    
+    
+    def batch_entropy(self, mean, cov):
+        
+        stdev = np.sqrt(np.diag(cov))
+        pivot = -mean / stdev
+
+        i, j = np.tril_indices(cov.shape[0], -1)
+        correl = cov[i, j] / (stdev[i] * stdev[j])
+
+        entropy = 0.0
+        for rel in itertools.product([False, True], repeat = len(mean)):
+            err, pr, info = scipy.stats.mvn.mvndst(pivot, pivot, np.array(rel, dtype = int), correl,
+                                                   maxpts = len(rel) * 100, abseps = 1e-4, releps = 1e-4)
+            if pr > 1e-12:
+                entropy += pr * np.log(pr)
+
+        return -1 * entropy
 
 
 

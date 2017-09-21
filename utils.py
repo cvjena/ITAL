@@ -14,13 +14,14 @@ from datasets import load_dataset
 
 
 LEARNERS = {
-    'ITAL'  : ITAL,
-    'EMOC'  : EMOC,
-    'random': RandomRetrieval,
-    'border': BorderlineSampling,
-    'var'   : VarianceSampling,
-    'unc'   : UncertaintySampling
-}
+    'ITAL'      : ITAL,
+    'EMOC'      : EMOC,
+    'entropy'   : EntropySampling,
+    'random'    : RandomRetrieval,
+    'border'    : BorderlineSampling,
+    'var'       : VarianceSampling,
+    'unc'       : UncertaintySampling
+}   
 
 
 def read_config_file(config_file, section, overrides):
