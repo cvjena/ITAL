@@ -80,6 +80,9 @@ if __name__ == '__main__':
             it_aps.append(average_precision_score(test_relevance, test_scores))
             it_ndcgs.append(utils.ndcg(test_relevance, test_scores))
             
+            if plot:
+                utils.plot_learning_step(dataset, query, relevance, learner, [], [])
+            
             for r in trange(config.getint('EXPERIMENT', 'rounds', fallback = 10), desc = 'Feedback rounds', leave = False, dynamic_ncols = True):
                 
                 ret = learner.fetch_unlabelled(config.getint('EXPERIMENT', 'batch_size'))
