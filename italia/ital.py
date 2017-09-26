@@ -144,7 +144,7 @@ class MutualInformation(object):
         rel_iter, rel_mc_num = self.rel_iter(ret, mean, cov)
         for reli in rel_iter:
 
-            rel = { ret[i] : r for i, r in enumerate(reli)}
+            rel = { ret[i] : r for i, r in enumerate(reli) }
             pr = self.prob_rel(reli, mean, cov)
             log_pr = np.log(pr + self.eps)
 
@@ -197,7 +197,7 @@ class MutualInformation(object):
         
         - ret: list of indices of samples in the candidate batch.
         
-        - rel: list of booleans indicating the true relevance of the samples.
+        - rel: dictionary mapping sample indices to their true relevance.
         
         # Returns:
             iterator over lists with elements from the set [-1, 0, 1].
@@ -277,7 +277,7 @@ class MutualInformation(object):
         
         # Arguments:
         
-        - rel: list of booleans indicating the relevance of the samples.
+        - rel: dictionary mapping sample indices to their assumed relevance.
         
         - feedback: the relevance feedback obtained from the user given as dictionary mapping the indices of
                     labelled samples to a numeric value.
