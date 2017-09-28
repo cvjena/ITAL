@@ -277,7 +277,7 @@ class GaussianProcess(object):
         
         y = np.asarray(y)
         cache_key = tuple(ind)
-        cov_cache_key = cache_key + tuple(pred_ind)
+        cov_cache_key = cache_key + (-1,) + tuple(pred_ind)
         
         if cache_key in self._inv_cache:
             K_inv = self._inv_cache[cache_key]
