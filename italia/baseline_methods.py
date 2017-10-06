@@ -4,6 +4,7 @@ import scipy.stats
 import itertools
 
 from .retrieval_base import ActiveRetrievalBase
+from .regression_base import ActiveRegressionBase
 
 
 
@@ -15,6 +16,17 @@ class RandomRetrieval(ActiveRetrievalBase):
         candidates = [i for i in range(len(self.data)) \
                       if (i not in self.relevant_ids) \
                       and (i not in self.irrelevant_ids)]
+        
+        return np.random.choice(candidates, min(k, len(candidates)), replace = False)
+
+
+class RandomRetrieval_Regression(ActiveRegressionBase):
+    """ Selects samples at random. """
+    
+    def fetch_unlabelled(self, k):
+        
+        candidates = [i for i in range(len(self.data)) \
+                      if i not in self.labeled_ids]
         
         return np.random.choice(candidates, min(k, len(candidates)), replace = False)
 
@@ -82,6 +94,51 @@ class VarianceSampling(ActiveRetrievalBase):
         return ret
 
 
+class VarianceSampling_Regression(ActiveRegressionBase):
+    """ Selects samples with maximum predictive variance.
+    
+    If `use_correlations` is set to `True`, the covariance to other samples in the selected batch will also
+    be taken into account by computing the score of a given batch of samples as the sum of their variance
+    minus the sum of their covariance. Samples will be selected in a greedy fashion, starting with the one
+    with the highest predictive variance and extending the batch successively.
+    """
+    
+    def __init__(self, data, train_init = [], y_init = [], length_scale = 0.1, var = 1.0, noise = 1e-6,
+                 use_correlations = False):
+        
+        ActiveRegressionBase.__init__(self, data, train_init, y_init, length_scale, var, noise)
+        self.use_correlations = use_correlations
+    
+    
+    def fetch_unlabelled(self, k):
+        
+        _, var = self.gp.predict_stored(cov_mode = 'diag')
+        
+        if self.use_correlations:
+            
+            ret = [max(range(var.size), key = lambda i: var[i] if i not in self.labeled_ids else 0)]
+            for l in range(1, k):
+                candidates = [i for i in range(var.size) if (i not in self.labeled_ids) and (i not in ret)]
+                if len(candidates) == 0:
+                    break
+                covs = self.gp.predict_cov_batch(ret, candidates)
+                ti, tj = np.tril_indices(covs.shape[1], -1)
+                scores = np.diagonal(covs, 0, 1, 2).sum(axis = -1) - covs[:,ti,tj].sum(axis = -1)
+                ret.append(candidates[np.argmax(scores)])
+            
+        else:
+            
+            ranking = np.argsort(var)[::-1]
+            ret = []
+            for i in ranking:
+                if i not in self.labeled_ids:
+                    ret.append(i)
+                    if len(ret) >= k:
+                        break
+        
+        return ret
+
+
 
 class UncertaintySampling(ActiveRetrievalBase):
     """ Selects samples with minimum certainty
@@ -124,7 +181,7 @@ class EntropySampling(ActiveRetrievalBase):
         
         rel_mean, rel_var = self.gp.predict_stored(cov_mode = 'diag')
         rel_mean = rel_mean[:len(self.data)]
-        rel_var = rel_var[:len(self.data),]
+        rel_var = rel_var[:len(self.data)]
         
         candidates = [i for i in range(rel_mean.size) if (i not in self.relevant_ids) and (i not in self.irrelevant_ids)]
         max_ind = max(range(len(candidates)), key = lambda i: self.single_entropy(rel_mean[candidates[i]], rel_var[candidates[i]]))
@@ -163,6 +220,53 @@ class EntropySampling(ActiveRetrievalBase):
                 entropy += pr * np.log(pr)
 
         return -1 * entropy
+
+
+class EntropySampling_Regression(ActiveRegressionBase):
+    """ Selects batches of samples with maximum entropy.
+    
+    Reference:
+    Ksenia Konyushkova, Raphael Sznitman and Pascal Fua.
+    "Geometry in Active Learning for Binary and Multi-class Image Segmentation."
+    arXiv:1606.09029v2.
+    
+    For batch sampling, this implementation uses the joint distribution of the samples in the
+    batch for computing the batch entropy.
+    """
+    
+    def __init__(self, *args, **kwargs):
+        
+        ActiveRegressionBase.__init__(self, *args, **kwargs)
+        self.constant = np.log(2 * np.pi * np.e)
+    
+    
+    def fetch_unlabelled(self, k):
+        
+        _, var = self.gp.predict_stored(cov_mode = 'diag')
+        
+        candidates = [i for i in range(len(var)) if i not in self.labeled_ids]
+        max_ind = max(range(len(candidates)), key = lambda i: self.single_entropy(var[candidates[i]]))
+        ret = [candidates[max_ind]]
+
+        for l in range(1, k):
+            del candidates[max_ind]
+            if len(candidates) == 0:
+                break
+            covs = self.gp.predict_cov_batch(ret, candidates)
+            max_ind = max(range(len(candidates)), key = lambda i: self.batch_entropy(covs[i]))
+            ret.append(candidates[max_ind])
+        
+        return ret
+    
+    
+    def single_entropy(self, var):
+        
+        return (self.constant + np.log(max(var, 1e-8))) / 2
+    
+    
+    def batch_entropy(self, cov):
+        
+        return (np.linalg.slogdet(cov + np.eye(cov.shape[0]) * 1e-8)[1] + cov.shape[0] * self.constant) / 2
 
 
 

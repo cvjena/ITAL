@@ -5,7 +5,7 @@ import math
 import numpy as np
 
 from italia import *
-from datasets import load_dataset
+from datasets import load_dataset, RetrievalDataset, MultitaskRetrievalDataset, RegressionDataset
 
 
 ############
@@ -21,7 +21,14 @@ LEARNERS = {
     'border'    : BorderlineSampling,
     'var'       : VarianceSampling,
     'unc'       : UncertaintySampling
-}   
+}
+
+REGRESSION_LEARNERS = {
+    'ITAL'      : ITAL_Regression,
+    'entropy'   : EntropySampling_Regression,
+    'random'    : RandomRetrieval_Regression,
+    'var'       : VarianceSampling_Regression
+}
 
 
 def read_config_file(config_file, section, overrides):
@@ -73,7 +80,13 @@ def load_config(config_file, section, overrides = {}):
     and the arguments of this function.
     
     # Returns:
-        a (configparser.ConfigParser, datasets.Dataset, italia.retrieval_base.ActiveRetrievalBase) tuple.
+        a (parser, dataset, learner) tuple whose individual components are:
+        - parser: a configparser.ConfigParser instance,
+        - dataset: a dataset.Dataset instance,
+        - learner: either an italia.retrieval_base.ActiveRetrievalBase instance, an
+                   italia.regression_base.ActiveRegressionBase instance, or a list of
+                   italia.retrieval_base.ActiveRetrievalBase instances for each sub-dataset,
+                   depending on the type of the dataset.
     """
     
     # Read config file
@@ -88,7 +101,12 @@ def load_config(config_file, section, overrides = {}):
     learner_config = dict(config['METHOD_DEFAULTS']) if 'METHOD_DEFAULTS' in config else dict()
     if learner in config:
         learner_config.update(config[learner])
-    learner = LEARNERS[learner](dataset.X_train_norm, **learner_config)
+    if isinstance(dataset, RegressionDataset):
+        learner = REGRESSION_LEARNERS[learner](dataset.X_train_norm, **learner_config)
+    elif isinstance(dataset, MultitaskRetrievalDataset):
+        learner = [LEARNERS[learner](d.X_train_norm, **learner_config) for d in dataset.data]
+    else:
+        learner = LEARNERS[learner](dataset.X_train_norm, **learner_config)
     
     return config, dataset, learner
 
@@ -202,8 +220,8 @@ def plot_data(data, relevance, query = None, retrieved = None, ax = None):
         retrieved = []
     not_retrieved = np.setdiff1d(np.arange(len(data)), retrieved)
     
-    colors = np.where(relevance == 1, 'b', 'gray')
-    colors_ret = np.where(relevance == 1, 'c', 'orange')
+    colors = np.where(np.asarray(relevance) == 1, 'b', 'gray')
+    colors_ret = np.where(np.asarray(relevance) == 1, 'c', 'orange')
     
     if ax == plt:
         plt.figure(figsize = (6.25, 5))
@@ -211,7 +229,10 @@ def plot_data(data, relevance, query = None, retrieved = None, ax = None):
     if len(retrieved) > 0:
         ax.scatter(data[retrieved,0], data[retrieved,1], c = colors_ret[retrieved], s = 15)
     if query is not None:
-        ax.scatter(*query, c = 'r', s = 15)
+        query = np.asarray(query)
+        if query.ndim == 1:
+            query = query[None,:]
+        ax.scatter(query[:,0], query[:,1], c = 'r', s = 15)
     if ax == plt:
         plt.show()
 
@@ -240,7 +261,10 @@ def plot_distribution(data, prob, query = None, ax = None):
     prob_min, prob_max = prob.min(), prob.max()
     ax.scatter(data[:,0], data[:,1], c = plt.cm.viridis((prob - prob_min) / (prob_max - prob_min)), s = 15)
     if query is not None:
-        ax.scatter(*query, c = 'r', s = 15)
+        query = np.asarray(query)
+        if query.ndim == 1:
+            query = query[None,:]
+        ax.scatter(query[:,0], query[:,1], c = 'r', s = 15)
     if ax == plt:
         plt.show()
 
@@ -272,7 +296,7 @@ def plot_dist_and_topk(data, relevance, prob, query = None, k = 25):
     plt.show()
 
 
-def plot_learning_step(dataset, query, relevance, learner, ret, fb):
+def plot_learning_step(dataset, queries, relevance, learner, ret, fb):
     """ Plots and shows a single active learning step.
     
     The output of this function differs depending on the type of data:
@@ -288,7 +312,7 @@ def plot_learning_step(dataset, query, relevance, learner, ret, fb):
     
     - dataset: a datasets.Dataset instance.
     
-    - query: the index of the query image in dataset.X_train.
+    - queries: the index of the query image in dataset.X_train (may also be a list of query indices).
     
     - relevance: the ground-truth relevance labels of all samples in dataset.X_train.
     
@@ -302,11 +326,15 @@ def plot_learning_step(dataset, query, relevance, learner, ret, fb):
     
     import matplotlib.pyplot as plt
     
+    if isinstance(queries, int):
+        queries = [queries]
+    
     if dataset.imgs_train is not None:
     
-        cols = max(10, len(ret))
+        cols = max([10, len(queries), len(ret)])
         fig, axes = plt.subplots(6, cols, figsize = (cols, 6))
-        axes[0,0].imshow(dataset.imgs_train[query], interpolation = 'bicubic', cmap = plt.cm.gray)
+        for query, ax in zip(queries, axes[0]):
+            ax.imshow(dataset.imgs_train[query], interpolation = 'bicubic', cmap = plt.cm.gray)
         for r, ax in zip(ret, axes[1]):
             ax.imshow(dataset.imgs_train[r], interpolation = 'bicubic', cmap = plt.cm.gray)
         top_ret = np.argsort(learner.rel_mean)[::-1][:cols*(len(axes)-2)]
@@ -324,10 +352,48 @@ def plot_learning_step(dataset, query, relevance, learner, ret, fb):
         axes[0,1].set_title('Labelled Examples')
         axes[1,0].set_title('Relevance Distribution')
         axes[1,1].set_title('Retrieval')
-        plot_data(dataset.X_train, relevance, dataset.X_train[query], ret, axes[0,0])
-        plot_data(dataset.X_train, relevance, dataset.X_train[query], [r for i, r in enumerate(ret) if fb[i] != 0], axes[0,1])
-        plot_distribution(dataset.X_train, learner.rel_mean, dataset.X_train[query], axes[1,0])
-        plot_data(dataset.X_train, relevance, dataset.X_train[query], np.argsort(learner.rel_mean)[::-1][:np.sum(relevance > 0)], axes[1,1])
+        plot_data(dataset.X_train, relevance, dataset.X_train[queries], ret, axes[0,0])
+        plot_data(dataset.X_train, relevance, dataset.X_train[queries], [r for i, r in enumerate(ret) if fb[i] != 0], axes[0,1])
+        plot_distribution(dataset.X_train, learner.rel_mean, dataset.X_train[queries], axes[1,0])
+        plot_data(dataset.X_train, relevance, dataset.X_train[queries], np.argsort(learner.rel_mean)[::-1][:np.sum(relevance > 0)], axes[1,1])
+        fig.tight_layout()
+        plt.show()
+    
+    else:
+    
+        raise RuntimeError("Don't know how to plot this dataset.")
+
+
+def plot_regression_step(dataset, init, learner, ret, fb):
+    """ Plots and shows a single active regression step for 2-dimensional data.
+    
+    # Arguments:
+    
+    - dataset: a datasets.RegressionDataset instance.
+    
+    - init: list of indices of the initial training samples in dataset.X_train.
+    
+    - learner: an italia.regression_base.ActiveRegressionBase instance.
+    
+    - ret: the indices of the samples selected for the current active learning batch.
+    
+    - fb: a list of feedback provided for each sample in the current batch.
+    """
+    
+    import matplotlib.pyplot as plt
+    
+    if isinstance(init, int):
+        init = [init]
+    
+    if dataset.X_train.shape[1] == 2:
+    
+        fig, axes = plt.subplots(1, 3, figsize = (12, 4))
+        axes[0].set_title('Active Learning Batch')
+        axes[1].set_title('Labelled Examples')
+        axes[2].set_title('Relevance Distribution')
+        plot_data(dataset.X_train, [0] * len(dataset.X_train), dataset.X_train[init], ret, axes[0])
+        plot_distribution(dataset.X_train, dataset.y_train, dataset.X_train[[r for i, r in enumerate(ret) if fb[i] is not None]], axes[1])
+        plot_distribution(dataset.X_train, learner.mean, np.zeros((0,2)), axes[2])
         fig.tight_layout()
         plt.show()
     

@@ -2,12 +2,13 @@ import sys, math
 from collections import OrderedDict
 
 import numpy as np
-from sklearn.model_selection import StratifiedKFold
-from sklearn.metrics import average_precision_score
+from sklearn.model_selection import KFold, StratifiedKFold
+from sklearn.metrics import average_precision_score, mean_squared_error
 import scipy.spatial
 from tqdm import tqdm, trange
 
 import utils
+from datasets import RegressionDataset, MultitaskRetrievalDataset
 from italia.gp import GaussianProcess
 
 
@@ -27,26 +28,26 @@ def cross_validate_gp(dataset, relevance, gp_params, n_folds = 10):
     gp = GaussianProcess(dataset.X_train_norm, **gp_params)
     scores = np.ndarray((len(dataset.X_train),), dtype = float)
     
-    kfold = StratifiedKFold(n_folds, shuffle = True, random_state = 0)
+    kfold = StratifiedKFold(n_folds, shuffle = True, random_state = 0) if relevance is not None else KFold(n_folds, shuffle = True, random_state = 0)
     for train_ind, test_ind in kfold.split(dataset.X_train_norm, relevance):
-        gp.fit(train_ind, relevance[train_ind])
+        gp.fit(train_ind, relevance[train_ind] if relevance is not None else dataset.y_train[train_ind])
         scores[test_ind] = gp.predict_stored(test_ind)
     
-    return average_precision_score(relevance, scores)
+    return average_precision_score(relevance, scores) if relevance is not None else -math.sqrt(mean_squared_error(dataset.y_train, scores))
 
 
 def cross_validate_fewshot(dataset, relevance, gp_params, n_folds = 10):
     
     gp = GaussianProcess(dataset.X_train_norm, **gp_params)
-    aps = []
+    perf = []
     
-    kfold = StratifiedKFold(n_folds, shuffle = True, random_state = 0)
+    kfold = StratifiedKFold(n_folds, shuffle = True, random_state = 0) if relevance is not None else KFold(n_folds, shuffle = True, random_state = 0)
     for train_ind, test_ind in kfold.split(dataset.X_train_norm, relevance):
-        gp.fit(test_ind, relevance[test_ind])
+        gp.fit(test_ind, relevance[test_ind] if relevance is not None else dataset.y_train[train_ind])
         scores = gp.predict_stored(train_ind)
-        aps.append(average_precision_score(relevance[train_ind], scores))
+        perf.append(average_precision_score(relevance[train_ind], scores) if relevance is not None else -math.sqrt(mean_squared_error(dataset.y_train[train_ind], scores)))
     
-    return np.mean(aps)
+    return np.mean(perf)
 
 
 def optimize_gp_params(dataset, relevance, grid = default_grid, init = default_init, n_folds = 10, fewshot = False, verbose = 1):
@@ -87,7 +88,7 @@ def optimize_gp_params(dataset, relevance, grid = default_grid, init = default_i
         changing_param = (changing_param + 1) % len(param_names)
     
     best_params = max(perf.keys(), key = lambda p: perf[p])
-    return dict(zip(param_names, best_params)), best_perf
+    return dict(zip(param_names, best_params)), best_perf if relevance is not None else -best_perf
 
 
 
@@ -111,30 +112,44 @@ if __name__ == '__main__':
     
     # Load dataset
     config, dataset = utils.load_dataset_from_config(config_file, 'EXPERIMENT', overrides)
-    query_classes = str(config.get('EXPERIMENT', 'query_classes', fallback = '')).split()
-    if len(query_classes) == 0:
-        query_classes = list(dataset.class_relevance.keys())
+    is_regression = isinstance(dataset, RegressionDataset)
+    if is_regression:
+    
+        best_params, best_perf = optimize_gp_params(dataset, None,
+                                                    n_folds = config.getint('EXPERIMENT', 'n_folds', fallback = 10),
+                                                    fewshot = config.getboolean('EXPERIMENT', 'few_shot', fallback = False),
+                                                    verbose = config.getint('EXPERIMENT', 'verbosity', fallback = 1))
+        
+        print('Best parameters for regression (RMSE: {:.2f}): {!r}'.format(best_perf, best_params))
+    
     else:
-        for i in range(len(query_classes)):
-            try:
-                query_classes[i] = int(query_classes[i])
-            except ValueError:
-                pass
+        
+        query_classes = str(config.get('EXPERIMENT', 'query_classes', fallback = '')).split()
+        if len(query_classes) == 0:
+            query_classes = list(dataset.class_relevance.keys())
+        else:
+            for i in range(len(query_classes)):
+                try:
+                    query_classes[i] = int(query_classes[i])
+                except ValueError:
+                    pass
     
-    # Optimize GP parameters individually for each class
-    best_params = {}
-    best_perf = {}
-    for lbl in query_classes:
-        print('--- CLASS {} ---'.format(lbl))
-        relevance, _ = dataset.class_relevance[lbl]
-        lbl_best, lbl_perf = optimize_gp_params(dataset, relevance,
-                                                n_folds = config.getint('EXPERIMENT', 'n_folds', fallback = 10),
-                                                fewshot = config.getboolean('EXPERIMENT', 'few_shot', fallback = False),
-                                                verbose = config.getint('EXPERIMENT', 'verbosity', fallback = 1))
-        best_params[lbl] = lbl_best
-        best_perf[lbl] = lbl_perf
-        print()
-    
-    # Print results
-    for lbl in best_params.keys():
-        print('Best parameters for class {} (AP: {:.2f}): {!r}'.format(lbl, best_perf[lbl], best_params[lbl]))
+        # Optimize GP parameters individually for each class
+        best_params = {}
+        best_perf = {}
+        datasets = dataset.data if isinstance(dataset, MultitaskRetrievalDataset) else [dataset]
+        for di, dataset in enumerate(datasets):
+            for lbl in query_classes:
+                print('--- DATASET {}, CLASS {} ---'.format(di + 1, lbl))
+                relevance, _ = dataset.class_relevance[lbl]
+                lbl_best, lbl_perf = optimize_gp_params(dataset, relevance,
+                                                        n_folds = config.getint('EXPERIMENT', 'n_folds', fallback = 10),
+                                                        fewshot = config.getboolean('EXPERIMENT', 'few_shot', fallback = False),
+                                                        verbose = config.getint('EXPERIMENT', 'verbosity', fallback = 1))
+                best_params[(di,lbl)] = lbl_best
+                best_perf[(di,lbl)] = lbl_perf
+                print()
+
+        # Print results
+        for di, lbl in best_params.keys():
+            print('Best parameters for dataset {}, class {} (AP: {:.2f}): {!r}'.format(di + 1, lbl, best_perf[(di,lbl)], best_params[(di,lbl)]))
