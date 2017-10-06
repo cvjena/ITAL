@@ -4,6 +4,7 @@ from collections import OrderedDict
 import numpy as np
 from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import average_precision_score
+import scipy.spatial
 from tqdm import tqdm, trange
 
 import utils
@@ -52,15 +53,19 @@ def optimize_gp_params(dataset, relevance, grid = default_grid, init = default_i
     
     param_names = list(grid.keys())
     cur_params = [init[p] for p in param_names]
+    changed = [True] * len(param_names)
     changing_param = 0
     perf = {}
-    best_perf = 0
+    best_perf = -np.infty
     
-    while True:
+    pdist = scipy.spatial.distance.pdist(dataset.X_train_norm, 'sqeuclidean')
+    
+    while any(changed):
         
         cur_perfs = {}
         for val in grid[param_names[changing_param]]:
             cv_params ={ param_names[i] : val if i == changing_param else cur_params[i] for i in range(len(param_names)) }
+            cv_params['pdist'] = pdist
             if fewshot:
                 cur_perfs[val] = cross_validate_fewshot(dataset, relevance, cv_params, n_folds = n_folds)
             else:
@@ -76,12 +81,10 @@ def optimize_gp_params(dataset, relevance, grid = default_grid, init = default_i
         if verbose > 0:
             print('{} : {:.4f}'.format(', '.join('{} = {}'.format(param_names[i], best_val if i == changing_param else cur_params[i]) for i in range(len(param_names))), best_perf))
         
+        changed[changing_param] = (best_val != cur_params[changing_param])
         cur_params[changing_param] = best_val
-        if tuple(cur_params) in perf:
-            break
-        else:
-            perf[tuple(cur_params)] = best_perf
-            changing_param = (changing_param + 1) % len(param_names)
+        perf[tuple(cur_params)] = best_perf
+        changing_param = (changing_param + 1) % len(param_names)
     
     best_params = max(perf.keys(), key = lambda p: perf[p])
     return dict(zip(param_names, best_params)), best_perf

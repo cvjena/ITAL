@@ -1,6 +1,35 @@
 import numpy as np
 import scipy.spatial.distance
+import scipy.linalg.lapack
 
+
+
+def invh(M):
+    """ Computes the inverse of a positive-semidefinite symmetric matrix.
+    
+    This uses the cholesky decomposition for inversion and is faster than the more generic np.linalg.inv.
+    
+    # Arguments:
+    - M: the matrix to be inverted.
+    
+    # Returns:
+        the inverse of M
+    """
+    
+    if M.dtype == np.float32:
+        potrf = scipy.linalg.lapack.spotrf
+        potri = scipy.linalg.lapack.spotri
+    else:
+        potrf = scipy.linalg.lapack.dpotrf
+        potri = scipy.linalg.lapack.dpotri
+        if M.dtype != np.float64:
+            M = M.astype(np.float64)
+    
+    zz , _ = potrf(M, False, False)
+    inv_M , info = potri(zz)
+    i, j = np.triu_indices_from(inv_M, k = 1)
+    inv_M[j, i] = inv_M[i, j]
+    return inv_M
 
 
 def extend_inv(K, inv, inv_ind, new_ind, diag_noise = 0):
@@ -66,7 +95,7 @@ class GaussianProcess(object):
     `k(x_i, x_j) = var * exp(-||x_i - x_j||^2 / (2*sigma^2)) + sigma_noise * (i==j)`
     """
     
-    def __init__(self, data, length_scale, var = 1.0, noise = 1e-6):
+    def __init__(self, data, length_scale, var = 1.0, noise = 1e-6, pdist = None):
         """ Initializes the Gaussian Process.
         
         # Arguments:
@@ -78,6 +107,11 @@ class GaussianProcess(object):
         - var: the `var` hyper-parameter of the kernel.
         
         - noise: the `sigma_noise` hyper-parameter of the kernel.
+        
+        - pdist: optionally, pre-computed pair-wise distances of all samples may be passed to this argument
+                 to avoid explicit distance computations. This could either be a 2-D square matrix containing
+                 pair-wise squaired euclidean distances or a 1-D array encoding the distances without
+                 redundancy in the format as returned by `scipy.spatial.distance.pdist`.
         """
         
         self.X = np.array(data)
@@ -86,7 +120,7 @@ class GaussianProcess(object):
         self.var = var
         self.noise = noise
         
-        self.K_all = self.kernel(self.X, self.X)
+        self.K_all = self.kernel(self.X, self.X) if pdist is None else self.dist_kernel(pdist)
         self.reset()
     
     
@@ -115,7 +149,7 @@ class GaussianProcess(object):
         self.ind = [i for i in ind]
         self.y = np.array(y)
         self.K = self.K_all[np.ix_(self.ind, self.ind)] + self.noise * np.eye(len(self.ind))
-        self.K_inv = np.linalg.inv(self.K)
+        self.K_inv = invh(self.K)
         self.w = np.dot(self.K_inv, self.y)
         self._inv_cache = {}
         self._cov_cache = {}
@@ -152,7 +186,7 @@ class GaussianProcess(object):
             np.hstack((self.K, K_old_new)),
             np.hstack((K_old_new.T, K_new))
         ))
-        self.K_inv = np.linalg.inv(self.K)
+        self.K_inv = invh(self.K)
         
         self.w = np.dot(self.K_inv, self.y)
         
@@ -328,3 +362,24 @@ class GaussianProcess(object):
             return self.var * (scipy.spatial.distance.squareform(np.exp(scipy.spatial.distance.pdist(a, 'sqeuclidean') / (-2 * self.length_scale_sq))) + np.eye(a.shape[0]))
         else:
             return self.var * np.exp(scipy.spatial.distance.cdist(a, b, 'sqeuclidean') / (-2 * self.length_scale_sq))
+    
+    
+    def dist_kernel(self, dist):
+        """ Evaluates the kernel function on a pre-computed pair-wise distance matrix.
+        
+        # Arguments:
+        
+        - dist: either a 2-D square matrix containing pair-wise squaired euclidean distances or a 1-D array encoding the
+                distances without redundancy in the format as returned by `scipy.spatial.distance.pdist`.
+        
+        # Returns:
+            square 2-D matrix with pair-wise kernel values
+        """
+        
+        if dist.ndim == 1:
+            sqexp = scipy.spatial.distance.squareform(np.exp(dist / (-2 * self.length_scale_sq)))
+            sqexp += np.eye(sqexp.shape[0])
+            sqexp *= self.var
+            return sqexp
+        else:
+            return self.var * np.exp(dist / (-2 * self.length_scale_sq))
