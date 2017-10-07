@@ -278,7 +278,7 @@ class MutualInformation(object):
         
         if (self.learner.label_prob >= 1) and (self.learner.mistake_prob <= 0):
             # Perfect user
-            return ([[rel[r] for i, r in enumerate(ret)]], 1)
+            return ([[1 if rel[r] else -1 for r in ret]], 1)
         
         elif self.learner.label_prob >= 1:
             # Maximally motivated user
