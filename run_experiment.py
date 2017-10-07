@@ -48,7 +48,7 @@ def run_retrieval_experiment(config, dataset, learner, plot = False, plot_hist =
     
     dataset_iterator = enumerate(zip(datasets, learners))
     if len(datasets) > 1:
-        dataset_iterator = tqdm(dataset_iterator, desc = 'Datasets', leave = False, dynamic_ncols = True)
+        dataset_iterator = tqdm(dataset_iterator, desc = 'Datasets', total = len(datasets), leave = False, dynamic_ncols = True)
     for di, (dataset, learner) in dataset_iterator:
         
         # Get classes to draw queries from
@@ -102,14 +102,14 @@ def run_retrieval_experiment(config, dataset, learner, plot = False, plot_hist =
     
     # Print mean and standard deviation for all iterations
     if config.get('EXPERIMENT', 'avg_class_perf', fallback = True):
-        aps_mat = OrderedDict([('Overall Performance', np.concatenate(list(aps.values())))])
-        ndcgs_mat = OrderedDict([('Overall Performance', np.concatenate(list(ndcgs.values())))])
+        aps_mat = OrderedDict([((-1, 'Overall Performance'), np.concatenate(list(aps.values())))])
+        ndcgs_mat = OrderedDict([((-1, 'Overall Performance'), np.concatenate(list(ndcgs.values())))])
     else:
         aps_mat = aps
         ndcgs_mat = ndcgs
     for di, lbl in aps_mat.keys():
         if len(aps_mat) > 1:
-            title = '{}{}'.format('Dataset {}, '.format(di+1) if len(datasets) > 1 else '', lbl if isinstance(lbl, str) else 'Class {}'.format(lbl))
+            title = '{}{}'.format('Dataset {}, '.format(di+1) if (len(datasets) > 1) and (di >= 0) else '', lbl if isinstance(lbl, str) else 'Class {}'.format(lbl))
             print('\n{}\n{:-<{}}\n'.format(title, '', len(title)))
         median_ap = np.median(aps_mat[(di,lbl)], axis = 0)
         median_ndcg = np.median(ndcgs_mat[(di,lbl)], axis = 0)
@@ -132,7 +132,7 @@ def run_retrieval_experiment(config, dataset, learner, plot = False, plot_hist =
         for r in range(rounds):
             axes[0,r].set_title('Round {}'.format(r))
         for i, (di,lbl) in enumerate(aps.keys()):
-            axes[i,0].set_ylabel('{}Class {}'.format('Dataset {}, '.format(di+1) if len(datasets) > 1 else '', lbl))
+            axes[i,0].set_ylabel('{}Class {}'.format('Dataset {}, '.format(di+1) if (len(datasets) > 1) and (di >= 0) else '', lbl))
             for r in range(rounds):
                 axes[i,r].hist(np.array(aps[(di,lbl)])[:,r])
         fig.tight_layout()
