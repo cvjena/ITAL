@@ -13,7 +13,7 @@ class ITAL(ActiveRetrievalBase):
     """ Implementation of Information-theoretic Active Learning for Information Retrieval Applications. """
     
     def __init__(self, data, queries = [], length_scale = 0.1, var = 1.0, noise = 1e-6,
-                 label_prob = 1.0, mistake_prob = 0.05,
+                 label_prob = 1.0, mistake_prob = 0.0,
                  change_estimation_subset = 0, clip_cov = 0,
                  monte_carlo_num_rel = None, monte_carlo_num_fb = None,
                  parallelized = True):
@@ -210,9 +210,11 @@ class MutualInformation(object):
         rel_iter, rel_mc_num = self.rel_iter(np.asarray(ret)[rel_it], mean_it, cov_it)
         for reli in rel_iter:
 
+            rel_sub = {}
             for i, r in zip(rel_it, reli):
                 rel_vec[i] = r
                 rel[ret[i]] = r
+                rel_sub[ret[i]] = r
             
             pr = self.prob_rel(reli, mean_it, cov_it)
             log_pr = np.log(self.prob_rel(rel_vec, mean, cov) + self.eps)
@@ -226,7 +228,7 @@ class MutualInformation(object):
                     pr_updated = self.updated_prob_rel(rel, feedback)
                     
                     cur_mi = np.log(pr_updated + self.eps) - log_pr
-                    cur_mi *= self.likelihood(feedback, rel) if fb_mc_num == 0 else 1./fb_mc_num
+                    cur_mi *= self.likelihood(feedback, rel_sub) if fb_mc_num == 0 else 1./fb_mc_num
                     if rel_mc_num == 0:
                         cur_mi *= pr
                     mi += cur_mi
