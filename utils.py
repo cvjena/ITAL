@@ -25,6 +25,7 @@ LEARNERS = {
 
 REGRESSION_LEARNERS = {
     'ITAL'      : ITAL_Regression,
+    'EMOC'      : EMOC_Regression,
     'entropy'   : EntropySampling_Regression,
     'random'    : RandomRetrieval_Regression,
     'var'       : VarianceSampling_Regression

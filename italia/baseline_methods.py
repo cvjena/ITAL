@@ -1,6 +1,7 @@
 import numpy as np
 import scipy.stats
 
+import math
 import itertools
 
 from .retrieval_base import ActiveRetrievalBase
@@ -316,3 +317,58 @@ class EMOC(ActiveRetrievalBase):
         prob_neg = scipy.stats.norm.cdf(0, mean, np.sqrt(variance))
         prob_pos = 1 - prob_neg
         return prob_pos * moc[:,0] + prob_neg * moc[:,1]
+
+
+
+class EMOC_Regression(ActiveRegressionBase):
+    """ Selects samples with maximum expected model output change (EMOC). """
+    
+    def __init__(self, data, train_init = [], y_init = [], length_scale = 0.1, var = 1.0, noise = 1e-6,
+                 norm = 1):
+        
+        ActiveRegressionBase.__init__(self, data, train_init, y_init, length_scale, var, noise)
+        self.norm = norm
+    
+    
+    def fetch_unlabelled(self, k):
+        
+        # Build list of candidate sample indices
+        candidates = np.array([i for i in range(len(self.data)) if (i not in self.labeled_ids)])
+        if len(candidates) < k:
+            k = len(candidates)
+        
+        # Compute EMOC scores for all candidates
+        scores = self.emoc_scores(candidates)
+        
+        # Return highest-scoring samples
+        return candidates[np.argsort(scores)[::-1][:k]].tolist()
+    
+    
+    def emoc_scores(self, ind):
+        
+        emocScores = np.empty([len(ind)])
+        muTilde = np.zeros([len(ind)])
+
+        k = self.gp.K_all[np.ix_(self.gp.ind, ind)]
+
+        _, sigmaF = self.gp.predict_stored(ind, cov_mode = 'diag')
+        moments = self.gaussianAbsoluteMoment(muTilde, sigmaF)
+
+        term1 = 1.0 / (sigmaF + self.gp.noise)
+
+        preCalcMult = np.dot(np.linalg.solve(self.gp.K, k).T, self.gp.K_all[np.ix_(self.gp.ind, ind)])
+
+        for idx in range(len(ind)):
+
+            vAll = term1[idx] * (preCalcMult[idx,:] - self.gp.K_all[ind[idx],ind])
+            emocScores[idx] = np.mean(np.power(np.abs(vAll), self.norm))
+
+        return emocScores * moments
+    
+    
+    def gaussianAbsoluteMoment(self, muTilde, predVar):
+
+        f11 = scipy.special.hyp1f1(-0.5*self.norm, 0.5, -0.5*np.divide(muTilde**2,predVar))
+        prefactors = ((2 * predVar**2)**(self.norm/2.0) * math.gamma((1 + self.norm)/2.0)) / np.sqrt(np.pi)
+
+        return np.multiply(prefactors,f11)
