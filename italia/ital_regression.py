@@ -151,8 +151,6 @@ class MutualInformation(object):
             mean_val = mean
             cov_val = cov
 
-        cov_inv = np.linalg.inv(cov_val + np.eye(cov_val.shape[0]) * self.eps)
-
         mi = 0.0
         for fbi in self.fb_iter(mean_it, cov_it, self.learner.monte_carlo_num):
             if any(fb is not None for fb in fbi):
@@ -162,7 +160,7 @@ class MutualInformation(object):
                 mi += self.update_kl_divergence(
                     np.asarray(ret)[annotated_ret],
                     [fb for fb in fbi if fb is not None],
-                    ret_val, mean_val, cov_inv
+                    ret_val, mean_it, cov_it, cov_val
                 )
         
         return mi / self.learner.monte_carlo_num
@@ -206,7 +204,7 @@ class MutualInformation(object):
                 yield fb
     
     
-    def update_kl_divergence(self, update_ind, y, pred_ind, mean, cov_inv):
+    def update_kl_divergence(self, update_ind, y, pred_ind, update_mean, update_cov, pred_cov):
         """ Computes the KL divergence between the updated model p(r|f,a) and the current model p(r|a).
         
         # Arguments:
@@ -225,10 +223,8 @@ class MutualInformation(object):
             float
         """
         
-        updated_mean, updated_cov = self.learner.gp.updated_prediction(update_ind, y, pred_ind, cov_mode = 'full')
-        mean_diff = mean - updated_mean
-        cov_prod = np.dot(updated_cov, cov_inv) + np.eye(cov_inv.shape[0]) * self.eps
-        return (mean_diff.dot(cov_inv.dot(mean_diff)) + cov_prod.trace() - np.linalg.slogdet(cov_prod)[1] - len(mean)) / 2.0
+        mean_diff, cov_prod = self.learner.gp.updated_diff(update_ind, y, pred_ind, update_mean, update_cov, pred_cov)
+        return (mean_diff + cov_prod.trace() - np.linalg.slogdet(cov_prod + np.eye(cov_prod.shape[0]) * self.eps)[1] - cov_prod.shape[0]) / 2.0
 
 
 

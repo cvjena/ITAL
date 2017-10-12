@@ -339,6 +339,49 @@ class GaussianProcess(object):
             return pred_mean
     
     
+    def updated_diff(self, ind, y, pred_ind, update_mean = None, update_cov = None, pred_cov = None):
+        """ Computes the change of predictive mean and covariance after a simulated update with new data.
+        
+        # Arguments:
+        
+        - ind: list of indices of update samples in the data matrix.
+        
+        - y: target values of the samples referred to by ind.
+        
+        - pred_ind: list of n indices in the data matrix to make predictions for.
+        
+        - update_mean: predictive mean of the update samples. If not specified, will be obtained from `predict_stored()`.
+        
+        - update_cov: predictive covariance matrix of the update samples. If not specified, will be obtained from `predict_stored()`.
+        
+        - update_cov: predictive covariance matrix of the samples specified by `pred_ind` before the update. If not specified, will be obtained from `predict_stored()`.
+        
+        # Returns:
+            tuple consisting of `(m - m')^T * S^(-1) * (m - m')` and `S^(-1) * S'`, where `m` and `m'` are the predictive means of the test samples before and after
+            the update, respectively, and `S` and `S'` are the corresponding predictive covariances.
+        """
+        
+        if update_cov is None:
+            update_mean, update_cov = self.predict_stored(ind, cov_mode = 'full')
+        elif update_mean is None:
+            update_mean = self.predict_stored(ind)
+        if pred_cov is None:
+            _, pred_cov = self.predict_stored(pred_ind, cov_mode = 'full')
+        
+        y_diff = y - update_mean
+        k_diff = np.linalg.multi_dot((
+                    self.K_all[np.ix_(pred_ind, self.ind)],
+                    self.K_inv,
+                    self.K_all[np.ix_(self.ind, ind)]
+                 )) - self.K_all[np.ix_(pred_ind, ind)]
+        k_diff_norm = np.linalg.solve(update_cov + np.eye(update_cov.shape[0]) * self.noise, k_diff.T).T
+        k_diff_inv = np.linalg.solve(pred_cov, k_diff_norm)
+
+        mean_diff = np.linalg.multi_dot((y_diff.T, k_diff_norm.T, k_diff_inv, y_diff))
+        cov_diff = np.eye(len(pred_ind)) - np.dot(k_diff_inv, k_diff.T)
+        return mean_diff, cov_diff
+    
+    
     def kernel(self, a, b = None):
         """ Evaluates the kernel function of this GP.
         
