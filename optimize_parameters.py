@@ -137,7 +137,7 @@ if __name__ == '__main__':
         # Optimize GP parameters individually for each class
         best_params = {}
         best_perf = {}
-        datasets = dataset.data if isinstance(dataset, MultitaskRetrievalDataset) else [dataset]
+        datasets = dataset.datasets() if isinstance(dataset, MultitaskRetrievalDataset) else [dataset]
         for di, dataset in enumerate(datasets):
             for lbl in query_classes:
                 print('--- DATASET {}, CLASS {} ---'.format(di + 1, lbl))

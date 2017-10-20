@@ -85,9 +85,10 @@ def load_config(config_file, section, overrides = {}):
         - parser: a configparser.ConfigParser instance,
         - dataset: a dataset.Dataset instance,
         - learner: either an italia.retrieval_base.ActiveRetrievalBase instance, an
-                   italia.regression_base.ActiveRegressionBase instance, or a list of
-                   italia.retrieval_base.ActiveRetrievalBase instances for each sub-dataset,
-                   depending on the type of the dataset.
+                   italia.regression_base.ActiveRegressionBase instance.
+                   The learner is usually initialized with the data from the dataset,
+                   except in the case of a MultitaskDataset, where an uninitialized
+                   learner will be returned.
     """
     
     # Read config file
@@ -105,7 +106,7 @@ def load_config(config_file, section, overrides = {}):
     if isinstance(dataset, RegressionDataset):
         learner = REGRESSION_LEARNERS[learner](dataset.X_train_norm, **learner_config)
     elif isinstance(dataset, MultitaskRetrievalDataset):
-        learner = [LEARNERS[learner](d.X_train_norm, **learner_config) for d in dataset.data]
+        learner = LEARNERS[learner](**learner_config)
     else:
         learner = LEARNERS[learner](dataset.X_train_norm, **learner_config)
     

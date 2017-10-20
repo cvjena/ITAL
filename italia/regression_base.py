@@ -10,7 +10,7 @@ class ActiveRegressionBase(object):
     In the most basic case, a derived class only needs to implement the fetch_unlabelled() method.
     """
     
-    def __init__(self, data, train_init = [], y_init = [], length_scale = 0.1, var = 1.0, noise = 1e-6):
+    def __init__(self, data = None, train_init = [], y_init = [], length_scale = 0.1, var = 1.0, noise = 1e-6):
         """
         # Arguments:
         
@@ -27,12 +27,32 @@ class ActiveRegressionBase(object):
         - noise: the `sigma_noise` hyper-parameter of the kernel (see documentation of italia.gp.GaussianProcess).
         """
         
+        self.length_scale = length_scale
+        self.var = var
+        self.noise = noise
+        self.fit(data, train_init, y_init)
+        
         self.data = data
         self.train_init = train_init
         self.y_init = y_init
         self.gp = GaussianProcess(self.data, length_scale, var, noise)
         
         self.reset()
+    
+    
+    def fit(self, data, train_init = [], y_init = []):
+        
+        self.data = data
+        self.train_init = train_init
+        self.y_init = y_init
+        if self.data is not None:
+            self.gp = GaussianProcess(
+                self.data,
+                self.length_scale, self.var, self.noise
+            )
+            self.reset()
+        else:
+            self.gp = None
     
     
     def reset(self):

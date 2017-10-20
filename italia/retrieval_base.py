@@ -10,7 +10,7 @@ class ActiveRetrievalBase(object):
     In the most basic case, a derived class only needs to implement the fetch_unlabelled() method.
     """
     
-    def __init__(self, data, queries = [], length_scale = 0.1, var = 1.0, noise = 1e-6):
+    def __init__(self, data = None, queries = [], length_scale = 0.1, var = 1.0, noise = 1e-6):
         """
         # Arguments:
         
@@ -25,14 +25,24 @@ class ActiveRetrievalBase(object):
         - noise: the `sigma_noise` hyper-parameter of the kernel (see documentation of italia.gp.GaussianProcess).
         """
         
+        self.length_scale = length_scale
+        self.var = var
+        self.noise = noise
+        self.fit(data, queries)
+    
+    
+    def fit(self, data, queries = []):
+        
         self.data = data
         self.queries = queries
-        self.gp = GaussianProcess(
-            np.concatenate((self.data, self.queries)) if len(self.queries) > 0 else self.data,
-            length_scale, var, noise
-        )
-        
-        self.reset()
+        if self.data is not None:
+            self.gp = GaussianProcess(
+                np.concatenate((self.data, self.queries)) if len(self.queries) > 0 else self.data,
+                self.length_scale, self.var, self.noise
+            )
+            self.reset()
+        else:
+            self.gp = None
     
     
     def reset(self):

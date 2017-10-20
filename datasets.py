@@ -140,14 +140,14 @@ class RetrievalDataset(Dataset):
 class MultitaskRetrievalDataset(object):
     """ A collection of several similar retrieval datasets. Each sub-dataset constitutes a binary classification task.
     
-    # Properties:
-    
-    - data: list of RetrievalDataset instances.
+    Use the datasets() method to obtain an iterator over the individual RetrievalDataset instances.
     """
     
-    def __init__(self, datasets = []):
-        
-        self.data = datasets
+    def __len__(self):
+        return 0
+    
+    def datasets(self):
+        raise NotImplementedError()
 
 
 
@@ -325,6 +325,8 @@ class ImageNetDataset(MultitaskRetrievalDataset):
         - num_negative_classes: number of negative classes per task.
         """
         
+        MultitaskRetrievalDataset.__init__(self)
+        
         self.sbow_dir = sbow_dir
         self.meta_file = meta_file
         self.val_label_file = val_label_file
@@ -338,8 +340,16 @@ class ImageNetDataset(MultitaskRetrievalDataset):
         # Create random subsets
         np.random.seed(0)
         self.selected_synsets = [np.random.choice(len(self.synsets), num_negative_classes + 1, replace = False) for i in range(num_tasks)]
-        data = []
-        for i, synsets in enumerate(self.selected_synsets):
+    
+    
+    def __len__(self):
+        
+        return len(self.selected_synsets)
+    
+    
+    def datasets(self):
+        
+        for synsets in self.selected_synsets:
             pos_synset = synsets[0]
             neg_synsets = synsets[1:]
             X_train, y_train = self._load_train_data(pos_synset, neg_synsets)
@@ -348,9 +358,7 @@ class ImageNetDataset(MultitaskRetrievalDataset):
             for syn in neg_synsets:
                 X_test = np.concatenate([X_test, self.val_feat[self.val_labels == syn]])
             y_test = np.concatenate([y_test, np.zeros(len(X_test) - len(y_test))])
-            data.append(RetrievalDataset(X_train, y_train, X_test, y_test))
-        
-        MultitaskRetrievalDataset.__init__(self, data)
+            yield RetrievalDataset(X_train, y_train, X_test, y_test)
     
     
     def _load_meta(self, meta_file, val_label_file):
