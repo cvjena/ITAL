@@ -12,7 +12,7 @@ from .regression_base import ActiveRegressionBase
 class ITAL_Regression(ActiveRegressionBase):
     """ Implementation of Information-theoretic Active Learning for Information Retrieval Applications using the KL divergence and marginal feedback probabilities. """
     
-    def __init__(self, data, train_init = [], y_init = [], length_scale = 0.1, var = 1.0, noise = 1e-6,
+    def __init__(self, data = None, train_init = [], y_init = [], length_scale = 0.1, var = 1.0, noise = 1e-6,
                  label_prob = 1.0,
                  change_estimation_subset = 0, monte_carlo_num = 1000,
                  parallelized = True):

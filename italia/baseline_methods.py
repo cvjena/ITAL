@@ -58,7 +58,7 @@ class VarianceSampling(ActiveRetrievalBase):
     with the highest predictive variance and extending the batch successively.
     """
     
-    def __init__(self, data, queries = [], length_scale = 0.1, var = 1.0, noise = 1e-6,
+    def __init__(self, data = None, queries = [], length_scale = 0.1, var = 1.0, noise = 1e-6,
                  use_correlations = False):
         
         ActiveRetrievalBase.__init__(self, data, queries, length_scale, var, noise)
@@ -104,7 +104,7 @@ class VarianceSampling_Regression(ActiveRegressionBase):
     with the highest predictive variance and extending the batch successively.
     """
     
-    def __init__(self, data, train_init = [], y_init = [], length_scale = 0.1, var = 1.0, noise = 1e-6,
+    def __init__(self, data = None, train_init = [], y_init = [], length_scale = 0.1, var = 1.0, noise = 1e-6,
                  use_correlations = False):
         
         ActiveRegressionBase.__init__(self, data, train_init, y_init, length_scale, var, noise)
@@ -323,7 +323,7 @@ class EMOC(ActiveRetrievalBase):
 class EMOC_Regression(ActiveRegressionBase):
     """ Selects samples with maximum expected model output change (EMOC). """
     
-    def __init__(self, data, train_init = [], y_init = [], length_scale = 0.1, var = 1.0, noise = 1e-6,
+    def __init__(self, data = None, train_init = [], y_init = [], length_scale = 0.1, var = 1.0, noise = 1e-6,
                  norm = 1):
         
         ActiveRegressionBase.__init__(self, data, train_init, y_init, length_scale, var, noise)

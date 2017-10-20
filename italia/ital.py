@@ -12,7 +12,7 @@ from .retrieval_base import ActiveRetrievalBase
 class ITAL(ActiveRetrievalBase):
     """ Implementation of Information-theoretic Active Learning for Information Retrieval Applications. """
     
-    def __init__(self, data, queries = [], length_scale = 0.1, var = 1.0, noise = 1e-6,
+    def __init__(self, data = None, queries = [], length_scale = 0.1, var = 1.0, noise = 1e-6,
                  label_prob = 1.0, mistake_prob = 0.0,
                  change_estimation_subset = 0, clip_cov = 0,
                  monte_carlo_num_rel = None, monte_carlo_num_fb = None,
