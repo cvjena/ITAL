@@ -1,6 +1,7 @@
 import numpy as np
 import csv
 import os.path
+import pickle
 
 import sklearn.datasets
 from sklearn.model_selection import train_test_split
@@ -298,6 +299,26 @@ class USPSDataset(RetrievalDataset):
                 X.append([float(x) for x in data[1:]])
         
         return np.array(X), np.array(y)
+
+
+
+class NaturalScenesDataset(RetrievalDataset):
+    """ Interface to the 13 Natural Scenes dataset.
+    
+    http://vision.stanford.edu/resources_links.html
+    """
+    
+    def __init__(self, pickle_dump, **kwargs):
+        """ Loads the Natural Scenes dataset.
+        
+        # Arguments:
+        - pickle_dump: Path to a pickle dump containing the items 'X_pca' and 'y'.
+        """
+        
+        with open(pickle_dump, 'rb') as f:
+            dump = pickle.load(f)
+        
+        RetrievalDataset.__init__(self, dump['X_pca'], dump['y'], **kwargs)
 
 
 
