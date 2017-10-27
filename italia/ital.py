@@ -14,7 +14,7 @@ class ITAL(ActiveRetrievalBase):
     
     def __init__(self, data = None, queries = [], length_scale = 0.1, var = 1.0, noise = 1e-6,
                  label_prob = 1.0, mistake_prob = 0.0,
-                 change_estimation_subset = 0, clip_cov = 0,
+                 change_estimation_subset = 0, clip_cov = 0, label_estimation = 'mean',
                  monte_carlo_num_rel = None, monte_carlo_num_fb = None,
                  parallelized = True):
         """
@@ -43,6 +43,11 @@ class ITAL(ActiveRetrievalBase):
                     This can be used to decompose high-dimensional distributions into smaller factors to speed
                     up approximation of joint cumulative distribution functions.
         
+        - label_estimation: If set to 'mean' (the default), mutual information will be computed by taking the mean
+                            over all possible labels for the current batch, weighted with their predictive probability
+                            according to the current model. If set to 'optimistic' or 'pessimistic', no weighting
+                            will be performed and the maximum or minimum value will be used instead of the mean, respectively.
+        
         - monte_carlo_num_rel: if given, monte-carlo simultion is performed instead of full enumeration of all
                                possible relevance configurations for a given batch of samples. The number of
                                random samples drawn from the distribution is the size of the batch multiplied
@@ -62,6 +67,7 @@ class ITAL(ActiveRetrievalBase):
         self.mistake_prob = mistake_prob
         self.change_estimation_subset = change_estimation_subset
         self.clip_cov = clip_cov
+        self.label_estimation = label_estimation
         self.monte_carlo_num_rel = monte_carlo_num_rel
         self.monte_carlo_num_fb = monte_carlo_num_fb
         self.parallelized = parallelized
@@ -182,9 +188,17 @@ class MutualInformation(object):
                     
                     cur_mi = np.log(pr_updated + self.eps) - log_pr
                     cur_mi *= self.likelihood(feedback, rel) if fb_mc_num == 0 else 1./fb_mc_num
-                    if rel_mc_num == 0:
-                        cur_mi *= pr
-                    mi += cur_mi
+                    
+                    if self.learner.label_estimation == 'optimistic':
+                        if cur_mi > mi:
+                            mi = cur_mi
+                    elif self.learner.label_estimation == 'pessimistic':
+                        if (mi == 0) or (cur_mi < mi):
+                            mi = cur_mi
+                    else:
+                        if rel_mc_num == 0:
+                            cur_mi *= pr
+                        mi += cur_mi
         
         if rel_mc_num > 0:
             mi /= rel_mc_num
