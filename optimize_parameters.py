@@ -13,11 +13,13 @@ from italia.gp import GaussianProcess
 
 
 
-default_grid = OrderedDict((
+default_grids = { 'full' : OrderedDict((
     ('length_scale', [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 1.5, 2.0, 2.5, 3., 4., 5., 6., 7., 8., 9., 10., 15., 20., 25.]),
     ('var', [0.1, 0.5, 1.0, 1.5, 2.0, 2.5, 5.0, 10.0]),
     ('noise', [1e-8, 1e-6, 1e-4, 1e-3, 1e-2, 0.05, 0.1])
-))
+)), 'ls_only' : OrderedDict((
+    ('length_scale', [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 1.5, 2.0, 2.5, 3., 4., 5., 6., 7., 8., 9., 10., 15., 20., 25.]),
+))}
 
 default_init = { 'length_scale' : 0.1, 'var' : 1.0, 'noise' : 1e-6 }
 
@@ -50,7 +52,7 @@ def cross_validate_fewshot(dataset, relevance, gp_params, n_folds = 10):
     return np.mean(perf)
 
 
-def optimize_gp_params(dataset, relevance, grid = default_grid, init = default_init, n_folds = 10, fewshot = False, verbose = 1):
+def optimize_gp_params(dataset, relevance, grid = default_grids['full'], init = default_init, n_folds = 10, fewshot = False, verbose = 1):
     
     param_names = list(grid.keys())
     cur_params = [init[p] for p in param_names]
@@ -86,6 +88,9 @@ def optimize_gp_params(dataset, relevance, grid = default_grid, init = default_i
         cur_params[changing_param] = best_val
         perf[tuple(cur_params)] = best_perf
         changing_param = (changing_param + 1) % len(param_names)
+        
+        if len(param_names) < 2:
+            break
     
     best_params = max(perf.keys(), key = lambda p: perf[p])
     return dict(zip(param_names, best_params)), best_perf if relevance is not None else -best_perf
@@ -115,7 +120,7 @@ if __name__ == '__main__':
     is_regression = isinstance(dataset, RegressionDataset)
     if is_regression:
     
-        best_params, best_perf = optimize_gp_params(dataset, None,
+        best_params, best_perf = optimize_gp_params(dataset, None, default_grids[config.get('EXPERIMENT', 'grid', fallback = 'full')],
                                                     n_folds = config.getint('EXPERIMENT', 'n_folds', fallback = 10),
                                                     fewshot = config.getboolean('EXPERIMENT', 'few_shot', fallback = False),
                                                     verbose = config.getint('EXPERIMENT', 'verbosity', fallback = 1))
@@ -142,7 +147,7 @@ if __name__ == '__main__':
             for lbl in query_classes:
                 print('--- DATASET {}, CLASS {} ---'.format(di + 1, lbl))
                 relevance, _ = dataset.class_relevance[lbl]
-                lbl_best, lbl_perf = optimize_gp_params(dataset, relevance,
+                lbl_best, lbl_perf = optimize_gp_params(dataset, relevance, default_grids[config.get('EXPERIMENT', 'grid', fallback = 'full')],
                                                         n_folds = config.getint('EXPERIMENT', 'n_folds', fallback = 10),
                                                         fewshot = config.getboolean('EXPERIMENT', 'few_shot', fallback = False),
                                                         verbose = config.getint('EXPERIMENT', 'verbosity', fallback = 1))
