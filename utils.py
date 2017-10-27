@@ -16,6 +16,7 @@ from datasets import load_dataset, RetrievalDataset, MultitaskRetrievalDataset, 
 LEARNERS = {
     'ITAL'      : ITAL,
     'EMOC'      : EMOC,
+    'MCMI'      : MCMI_min,
     'entropy'   : EntropySampling,
     'random'    : RandomRetrieval,
     'border'    : BorderlineSampling,
