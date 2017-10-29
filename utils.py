@@ -17,9 +17,12 @@ LEARNERS = {
     'ITAL'      : ITAL,
     'EMOC'      : EMOC,
     'MCMI'      : MCMI_min,
+    'SUD'       : SUD,
+    'RBMAL'     : RBMAL,
     'entropy'   : EntropySampling,
     'random'    : RandomRetrieval,
     'border'    : BorderlineSampling,
+    'border_div': BorderlineDiversitySampling,
     'var'       : VarianceSampling,
     'unc'       : UncertaintySampling
 }

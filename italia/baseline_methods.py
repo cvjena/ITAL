@@ -1,5 +1,6 @@
 import numpy as np
 import scipy.stats
+import scipy.spatial.distance
 
 import math
 import itertools
@@ -45,6 +46,54 @@ class BorderlineSampling(ActiveRetrievalBase):
                 ret.append(i)
                 if len(ret) >= k:
                     break
+        return ret
+
+
+
+class BorderlineDiversitySampling(ActiveRetrievalBase):
+    """ Selects samples with small distance to the decision boundary while maintaining diversity among them w.r.t. their angle.
+    
+    Reference:
+    Klaus Brinker.
+    "Incorporating Diversity in Active Learning with Support Vector Machines."
+    International Conference on Machine Learning (ICML), 2003.
+    
+    `alpha` is the linear combination coefficient interpolating between the distance and the diversity criterion,
+    """
+    
+    def __init__(self, data = None, queries = [], length_scale = 0.1, var = 1.0, noise = 1e-6,
+                 alpha = 0.5):
+        
+        ActiveRetrievalBase.__init__(self, data, queries, length_scale, var, noise)
+        self.alpha = alpha
+    
+    
+    def fetch_unlabelled(self, k):
+        
+        candidates = [i for i in range(len(self.data)) if (i not in self.relevant_ids) and (i not in self.irrelevant_ids)]
+        
+        # Select sample closest to the decision boundary as first sample
+        min_ind = np.argmin(np.abs(self.rel_mean[candidates]))
+        ret = [candidates[min_ind]]
+        
+        # Select more samples by minimizing a trade-off between distance to decision boundary and similarity to already selected samples
+        for i in range(1, k):
+            
+            del candidates[min_ind]
+            if len(candidates) == 0:
+                break
+            
+            # Compute cosine similarity of candidates to selected samples in kernel space
+            angle = self.gp.K_all[np.ix_(candidates, ret)]
+            angle /= np.sqrt(self.gp.K_all[candidates, candidates])[:,None]
+            angle /= np.sqrt(self.gp.K_all[ret, ret])[None,:]
+            diversity = angle.max(axis = -1)
+            
+            # Select sample with minimum score
+            scores = self.alpha * np.abs(self.rel_mean[candidates]) + (1.0 - self.alpha) * diversity
+            min_ind = np.argmin(scores)
+            ret.append(candidates[min_ind])
+        
         return ret
 
 
@@ -372,3 +421,80 @@ class EMOC_Regression(ActiveRegressionBase):
         prefactors = ((2 * predVar**2)**(self.norm/2.0) * math.gamma((1 + self.norm)/2.0)) / np.sqrt(np.pi)
 
         return np.multiply(prefactors,f11)
+
+
+
+class SUD(ActiveRetrievalBase):
+    """ Sampling by Uncertainty and Density.
+    
+    Reference:
+    Jingbo Zhu, Huizhen Wang, Tianshun Yao, and Benjamin K Tsou.
+    "Active Learning with Sampling by Uncertainty and Density for Word Sense Disambiguation and Text Classification."
+    International Conference on Computational Linguistics (COLING), 2008, pp. 1137-1144.
+    
+    The parameter `K` specifies the number of nearest neighbours to take into account for density computation.
+    """
+    
+    def __init__(self, data = None, queries = [], length_scale = 0.1, var = 1.0, noise = 1e-6,
+                 K = 20):
+        
+        ActiveRetrievalBase.__init__(self, data, queries, length_scale, var, noise)
+        self.K = K
+    
+    
+    def fetch_unlabelled(self, k):
+        
+        candidates = [i for i in range(len(self.data)) if (i not in self.relevant_ids) and (i not in self.irrelevant_ids)]
+        
+        # Compute uncertainty (entropy) for all candidates
+        rel_mean, rel_var = self.gp.predict_stored(candidates, cov_mode = 'diag')
+        irr_prob = np.maximum(1e-8, np.minimum(1.0 - 1e-8, scipy.stats.norm.cdf(0, rel_mean, np.sqrt(rel_var))))
+        rel_prob = 1.0 - irr_prob
+        unc = -1 * (rel_prob * np.log(rel_prob) + irr_prob * np.log(irr_prob))
+        
+        # Compute density for all candidates
+        densities = (np.partition(scipy.spatial.distance.cdist(self.data[candidates], self.data, 'cosine'), self.K, axis = -1)[:,:self.K+1].sum(axis = -1) - 1.0) / self.K
+        
+        # Select samples with maximum product of uncertainty and density
+        max_ind = np.argsort(unc * densities)[::-1]
+        return [candidates[i] for i in max_ind[:k]]
+
+
+
+class RBMAL(ActiveRetrievalBase):
+    """ Ranked Batch-Mode Active Learning.
+    
+    Reference:
+    Thiago N. C. Cardoso, Rodrigo M. Silva, Sérgio Canuto, Mirella M. Moro, and Marcos A Gonçalves.
+    "Ranked batch-mode active learning."
+    Information Sciences 379, 2017, pp. 313-337.
+    """
+    
+    def fetch_unlabelled(self, k):
+        
+        # Compute relevance probabilities and uncertainties for all unlabeled samples
+        rel_mean, rel_var = self.gp.predict_stored(cov_mode = 'diag')
+        irr_prob = scipy.stats.norm.cdf(0, rel_mean, np.sqrt(rel_var))
+        unc = 1.0 - np.abs(1.0 - 2 * irr_prob)
+        
+        # Greedily select samples maximizing a trade-off between uncertainty and similarity to already selected and training samples
+        train_ids = list(self.relevant_ids | self.irrelevant_ids)
+        candidates = [i for i in range(rel_mean.size) if (i not in self.relevant_ids) and (i not in self.irrelevant_ids)]
+        ret = []
+        for l in range(1, k):
+            
+            # Compute similarity to already selected samples
+            dist = scipy.spatial.distance.cdist(self.data[candidates], self.data[train_ids], 'cosine').min(axis = -1)
+            
+            # Compute combined score
+            alpha = len(candidates) / (len(candidates) + len(train_ids) + len(ret))
+            scores = alpha * dist + (1 - alpha) * unc[candidates]
+            
+            # Select sample with maximum score
+            max_ind = np.argmax(scores)
+            ret.append(candidates[max_ind])
+            del candidates[max_ind]
+            if len(candidates) == 0:
+                break
+        
+        return ret
