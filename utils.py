@@ -19,10 +19,12 @@ LEARNERS = {
     'MCMI'      : MCMI_min,
     'SUD'       : SUD,
     'RBMAL'     : RBMAL,
+    'TCAL'      : TCAL,
     'entropy'   : EntropySampling,
     'random'    : RandomRetrieval,
     'border'    : BorderlineSampling,
     'border_div': BorderlineDiversitySampling,
+    'topscoring': TopscoringSampling,
     'var'       : VarianceSampling,
     'unc'       : UncertaintySampling
 }

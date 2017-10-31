@@ -34,6 +34,22 @@ class RandomRetrieval_Regression(ActiveRegressionBase):
 
 
 
+class TopscoringSampling(ActiveRetrievalBase):
+    """ Selects samples with maximum predictive mean. """
+    
+    def fetch_unlabelled(self, k):
+        
+        ranking = np.argsort(self.rel_mean)[::-1]
+        ret = []
+        for i in ranking:
+            if (i not in self.relevant_ids) and (i not in self.irrelevant_ids):
+                ret.append(i)
+                if len(ret) >= k:
+                    break
+        return ret
+
+
+
 class BorderlineSampling(ActiveRetrievalBase):
     """ Selects samples with minimum absolute predictive mean. """
     
@@ -496,5 +512,63 @@ class RBMAL(ActiveRetrievalBase):
             del candidates[max_ind]
             if len(candidates) == 0:
                 break
+        
+        return ret
+
+
+
+class TCAL(ActiveRetrievalBase):
+    """ Triple Criteria Active Learning.
+    
+    Reference:
+    Begüm Demir and Lorenzo Bruzzone.
+    "A Novel Active Learning Method in Relevance Feedback for Content-Based Remote Sensing Image Retrieval"
+    IEEE Transactions on Geoscience and Remote Sensing 53.5, 2015, pp. 2323-2333.
+    
+    This algorithm consist of two steps:
+    1. Select the `m` samples closest to the decision boundary.
+    2. Divide them into `k` clusters and from eache cluster, select the sample with the minimum average
+       distance to all other samples in the cluster.
+    
+    The parameter `unc_factor` implicitly controls `m` by `m = unc_factor * k`.
+    """
+    
+    def __init__(self, data = None, queries = [], length_scale = 0.1, var = 1.0, noise = 1e-6,
+                 unc_factor = 4):
+        
+        ActiveRetrievalBase.__init__(self, data, queries, length_scale, var, noise)
+        self.unc_factor = unc_factor
+    
+    
+    def fetch_unlabelled(self, k):
+        
+        candidates = np.array([i for i in range(len(self.data)) if (i not in self.relevant_ids) and (i not in self.irrelevant_ids)])
+        
+        # Select sample closest to the decision
+        m = self.unc_factor * k
+        uncertain_ind = np.argpartition(np.abs(self.rel_mean[candidates]), m - 1)[:m]
+        unc = candidates[uncertain_ind]
+        
+        # Divide them into k clusters
+        from .external.kernel_kmeans import KernelKMeans
+        succ = False
+        while not succ:
+            try:
+                km = KernelKMeans(k, kernel = 'precomputed')
+                km.fit(self.gp.K_all[np.ix_(unc, unc)])
+                succ = True
+            except ValueError:
+                k -= 1
+                if k == 0:
+                    raise
+        
+        # Select the sample with the highest density from each cluster
+        ret = []
+        for i in range(k):
+            cluster_ind = unc[km.labels_ == i]
+            K_cluster = self.gp.K_all[np.ix_(cluster_ind, cluster_ind)]
+            d_cluster = np.diag(K_cluster)
+            densities = np.mean(d_cluster[:,None] + d_cluster[None,:] - 2 * K_cluster, axis = -1)
+            ret.append(cluster_ind[np.argmin(densities)])
         
         return ret
