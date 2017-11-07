@@ -2,9 +2,9 @@ import sys, math
 from collections import OrderedDict
 
 import numpy as np
+import numexpr as ne
 from sklearn.model_selection import KFold, StratifiedKFold
 from sklearn.metrics import average_precision_score, mean_squared_error
-import scipy.spatial
 from tqdm import tqdm, trange
 
 import utils
@@ -61,7 +61,8 @@ def optimize_gp_params(dataset, relevance, grid = default_grids['full'], init = 
     perf = {}
     best_perf = -np.infty
     
-    pdist = scipy.spatial.distance.pdist(dataset.X_train_norm, 'sqeuclidean')
+    data_norm = np.sum(dataset.X_train_norm ** 2, axis = -1)
+    pdist = ne.evaluate('A + B - 2 * C', { 'A' : data_norm[:,None], 'B' : data_norm[None,:], 'C' : np.dot(dataset.X_train_norm, dataset.X_train_norm.T) })
     
     while any(changed):
         

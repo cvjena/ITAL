@@ -1,4 +1,5 @@
 import numpy as np
+import numexpr as ne
 import scipy.spatial.distance
 import scipy.linalg.lapack
 
@@ -110,7 +111,7 @@ class GaussianProcess(object):
         
         - pdist: optionally, pre-computed pair-wise distances of all samples may be passed to this argument
                  to avoid explicit distance computations. This could either be a 2-D square matrix containing
-                 pair-wise squaired euclidean distances or a 1-D array encoding the distances without
+                 pair-wise squared euclidean distances or a 1-D array encoding the distances without
                  redundancy in the format as returned by `scipy.spatial.distance.pdist`.
         """
         
@@ -389,7 +390,8 @@ class GaussianProcess(object):
         n-by-m kernel matrix K with `K[i,j] = kernel(X[i], Y[i])`.
         
         `kernel(Y)` will compute `kernel(self.X, Y)`, where `self.X` refers to the
-        data matrix passed to __init__().
+        subset of the data matrix passed to __init__() which the GP is currently
+        fitted to.
         """
         
         if b is None:
@@ -402,9 +404,12 @@ class GaussianProcess(object):
             b = b[None,:]
         
         if a is b:
-            return self.var * (scipy.spatial.distance.squareform(np.exp(scipy.spatial.distance.pdist(a, 'sqeuclidean') / (-2 * self.length_scale_sq))) + np.eye(a.shape[0]))
+            norm = np.sum(a ** 2, axis = -1)
+            return ne.evaluate('v * exp((A + B - 2 * C) / s)', { 'A' : norm[:,None], 'B' : norm[None,:], 'C' : np.dot(a, a.T), 's' : -2 * self.length_scale_sq, 'v' : self.var })
         else:
-            return self.var * np.exp(scipy.spatial.distance.cdist(a, b, 'sqeuclidean') / (-2 * self.length_scale_sq))
+            a_norm = np.sum(a ** 2, axis = -1)
+            b_norm = np.sum(b ** 2, axis = -1)
+            return ne.evaluate('v * exp((A + B - 2 * C) / s)', { 'A' : a_norm[:,None], 'B' : b_norm[None,:], 'C' : np.dot(a, b.T), 's' : -2 * self.length_scale_sq, 'v' : self.var })
     
     
     def dist_kernel(self, dist):
@@ -420,9 +425,8 @@ class GaussianProcess(object):
         """
         
         if dist.ndim == 1:
-            sqexp = scipy.spatial.distance.squareform(np.exp(dist / (-2 * self.length_scale_sq)))
-            sqexp += np.eye(sqexp.shape[0])
-            sqexp *= self.var
+            sqexp = scipy.spatial.distance.squareform(ne.evaluate('v * exp(d / s)', { 'd' : dist, 's' : -2 * self.length_scale_sq, 'v' : self.var }))
+            sqexp += np.diag(np.ones(sqexp.shape[0]) * self.var)
             return sqexp
         else:
-            return self.var * np.exp(dist / (-2 * self.length_scale_sq))
+            return ne.evaluate('v * exp(D / s)', { 'D' : dist, 's' : -2 * self.length_scale_sq, 'v' : self.var })
