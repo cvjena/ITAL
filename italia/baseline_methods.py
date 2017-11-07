@@ -572,3 +572,88 @@ class TCAL(ActiveRetrievalBase):
             ret.append(cluster_ind[np.argmin(densities)])
         
         return ret
+
+
+
+class USDM(ActiveRetrievalBase):
+    """ Uncertainty Sampling with Diversity Maximization.
+    
+    Reference:
+    Yi Yang, Zhigang Ma, Feiping Nie, Xiaojun Chang, and Alexander G Hauptmann.
+    "Multi-Class Active Learning by Uncertainty Sampling with Diversity Maximization."
+    International Journal on Computer Vision, 2015, pp. 113-127.
+    
+    This is a translation of the MATLAB reference code provided by Xiaojun Chang at:
+    http://www.cs.cmu.edu/~uqxchan1/codes/AL_semi_fast1.m
+    """
+    
+    def __init__(self, data = None, queries = [], length_scale = 0.1, var = 1.0, noise = 1e-6,
+                 knn = 5, r = 1.0, max_iter = 100, tol = 1e-6):
+        
+        self.knn = knn
+        self.r = r
+        self.max_iter = max_iter
+        self.tol = tol
+        ActiveRetrievalBase.__init__(self, data, queries, length_scale, var, noise)
+    
+    
+    def fit(self, data, queries = []):
+        
+        ActiveRetrievalBase.fit(self, data, queries)
+        
+        if self.gp is not None:
+            # Construct neighborhood matrix
+            self.A = np.zeros_like(self.gp.K_all)
+            neighbours = np.argpartition(np.diag(np.diag(self.gp.K_all)) - self.gp.K_all, self.knn, axis = -1)[:,:self.knn]
+            row_ind = np.tile(np.arange(self.A.shape[0])[:,None], (1, self.knn))
+            self.A[row_ind, neighbours] = 1
+            self.A += 1e-6
+            self.A = np.diag(self.A.sum(axis = -1)) - self.A
+    
+    
+    def fetch_unlabelled(self, k):
+        
+        labeled_ind = np.array(list(self.relevant_ids | self.irrelevant_ids))
+        if len(self.queries) > 0:
+            labeled_ind = np.concatenate((labeled_ind, np.arange(len(self.data), len(self.data) + len(self.queries))))
+        unlabeled_ind = np.setdiff1d(np.arange(len(self.data)), labeled_ind)
+        
+        # Compute class probabilities and negated entropy
+        y = np.array([1. if i in self.relevant_ids else 0. for i in labeled_ind])
+        prob = np.maximum(1e-8, np.minimum(1.0 - 1e-8, np.linalg.solve(-self.A[np.ix_(unlabeled_ind, unlabeled_ind)], np.dot(self.A[np.ix_(unlabeled_ind, labeled_ind)], y))))
+        b = (self.r * (prob * np.log(prob) + (1.0 - prob) * np.log(1.0 - prob))) / np.log(0.5)
+        
+        # Compute ranking scores
+        f = self._alm(self.gp.K_all[np.ix_(unlabeled_ind, unlabeled_ind)], b, k)
+        
+        return unlabeled_ind[np.argpartition(-f, k - 1)[:k]]
+    
+    
+    def _alm(self, K, b, k):
+        
+        n = len(b)
+        mu = 1e-6
+        rho = 1.1
+        f = np.ones(n) / n
+        v = f.copy()
+        lambda1 = 0.0
+        lambda2 = np.zeros(n)
+        obj = None
+        
+        for it in range(self.max_iter):
+            
+            A = K + mu * (np.ones((n, n)) + np.eye(n))
+            e = mu * (v + np.ones(n)) - (lambda2 + lambda1 * np.ones(n)) - b
+            f = np.linalg.solve(A, e)
+            v = f + lambda2 / mu
+            v[v < 0] = 0
+            lambda1 += mu * (f.sum() - k)
+            lambda2 += mu * (f - v)
+            mu *= rho
+            
+            obj_prev = obj
+            obj = np.dot(f, np.dot(K, f)) / 2 + np.dot(f, b)
+            if (obj_prev is not None) and (abs(obj_prev - obj) < self.tol):
+                break
+        
+        return f

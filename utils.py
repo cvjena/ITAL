@@ -20,6 +20,7 @@ LEARNERS = {
     'SUD'       : SUD,
     'RBMAL'     : RBMAL,
     'TCAL'      : TCAL,
+    'USDM'      : USDM,
     'entropy'   : EntropySampling,
     'random'    : RandomRetrieval,
     'border'    : BorderlineSampling,
