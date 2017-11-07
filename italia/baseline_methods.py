@@ -4,6 +4,7 @@ import scipy.spatial.distance
 
 import math
 import itertools
+from multiprocessing import Pool
 
 from .retrieval_base import ActiveRetrievalBase
 from .regression_base import ActiveRegressionBase
@@ -250,27 +251,31 @@ class EntropySampling(ActiveRetrievalBase):
         rel_var = rel_var[:len(self.data)]
         
         candidates = [i for i in range(rel_mean.size) if (i not in self.relevant_ids) and (i not in self.irrelevant_ids)]
-        max_ind = max(range(len(candidates)), key = lambda i: self.single_entropy(rel_mean[candidates[i]], rel_var[candidates[i]]))
+        max_ind = max(range(len(candidates)), key = lambda i: self.__class__.single_entropy(rel_mean[candidates[i]], rel_var[candidates[i]]))
         ret = [candidates[max_ind]]
 
-        for l in range(1, k):
-            del candidates[max_ind]
-            if len(candidates) == 0:
-                break
-            covs = self.gp.predict_cov_batch(ret, candidates)
-            max_ind = max(range(len(candidates)), key = lambda i: self.batch_entropy(rel_mean[ret+[candidates[i]]], covs[i]))
-            ret.append(candidates[max_ind])
+        with Pool() as p:
+            for l in range(1, k):
+                del candidates[max_ind]
+                if len(candidates) == 0:
+                    break
+                covs = self.gp.predict_cov_batch(ret, candidates)
+                entropies = p.starmap(self.__class__.batch_entropy, [(rel_mean[ret+[candidates[i]]], covs[i]) for i in range(len(candidates))])
+                max_ind = np.argmax(entropies)
+                ret.append(candidates[max_ind])
         
         return ret
     
     
-    def single_entropy(self, mean, var):
+    @staticmethod
+    def single_entropy(mean, var):
         
         prob_irr = max(1e-8, min(1.0 - 1e-8, scipy.stats.norm.cdf(0, mean, np.sqrt(var))))
         return -1 * (prob_irr * np.log(prob_irr) + (1.0 - prob_irr) * np.log(1.0 - prob_irr))
     
     
-    def batch_entropy(self, mean, cov):
+    @staticmethod
+    def batch_entropy(mean, cov):
         
         stdev = np.sqrt(np.diag(cov))
         pivot = -mean / stdev
