@@ -198,6 +198,32 @@ def ndcg(y_true, y_score):
     return cgain / normalizer
 
 
+def area_under_curve(perf, normalized = True):
+    """ Computes the area under curve for a sequence of performance metrics.
+    
+    # Arguments:
+    
+    - perf: either a vector of performance measures for a number of consecutive
+            active learning steps or a 2-D array containing one such vector per row.
+    
+    - normalized: if True, the x-axis will be re-scaled so that the best possible AUC is 1.0.
+    
+    # Returns:
+        float if perf is a vector, or vector with as many rows as perf if it is a 2-D array
+    """
+    
+    perf = np.asarray(perf)
+    if perf.ndim == 1:
+        single = True
+        perf = perf[None,:]
+    else:
+        single = False
+    
+    auc = (perf[:,1:-1].sum(axis = -1) + (perf[:,0] + perf[:,-1]) / 2) / perf.shape[1]
+    
+    return auc[0] if single else auc
+
+
 
 ###################
 ## Visualization ##
