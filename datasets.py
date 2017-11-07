@@ -329,7 +329,7 @@ class ImageNetDataset(MultitaskRetrievalDataset):
     A single positive and multiple negative classes are selected for each task.
     """
     
-    def __init__(self, sbow_dir, meta_file, val_label_file, num_tasks = 100, num_negative_classes = 9):
+    def __init__(self, sbow_dir, meta_file, val_label_file, train_img_dir = None, val_img_dir = None, num_tasks = 100, num_negative_classes = 9):
         """ Initializes the ImageNet dataset.
         
         # Arguments:
@@ -341,6 +341,12 @@ class ImageNetDataset(MultitaskRetrievalDataset):
         
         - val_label_file: path to ILSVRC2010_validation_ground_truth.txt file of the ILSVRC 2010 development kit.
         
+        - train_img_dir: optionally, path to the directory containing the tar archives with images of the training synsets.
+                         Only needed for filling the `imgs_train` attributes of the datasets.
+        
+        - val_img_dir: optionally, path to the directory containing the validation images.
+                       Only needed for filling the `imgs_train` attributes of the datasets.
+        
         - num_tasks: number of random binary classification tasks.
         
         - num_negative_classes: number of negative classes per task.
@@ -351,6 +357,8 @@ class ImageNetDataset(MultitaskRetrievalDataset):
         self.sbow_dir = sbow_dir
         self.meta_file = meta_file
         self.val_label_file = val_label_file
+        self.train_img_dir = train_img_dir
+        self.val_img_dir = val_img_dir
         self.num_tasks = num_tasks
         self.num_negative_classes = num_negative_classes
         
@@ -373,13 +381,21 @@ class ImageNetDataset(MultitaskRetrievalDataset):
         for synsets in self.selected_synsets:
             pos_synset = synsets[0]
             neg_synsets = synsets[1:]
-            X_train, y_train = self._load_train_data(pos_synset, neg_synsets)
+            X_train, y_train, imgs_train = self._load_train_data(pos_synset, neg_synsets)
             X_test = self.val_feat[self.val_labels == pos_synset]
             y_test = np.ones(len(X_test))
             for syn in neg_synsets:
                 X_test = np.concatenate([X_test, self.val_feat[self.val_labels == syn]])
             y_test = np.concatenate([y_test, np.zeros(len(X_test) - len(y_test))])
-            yield RetrievalDataset(X_train, y_train, X_test, y_test)
+            
+            ds = RetrievalDataset(X_train, y_train, X_test, y_test)
+            if self.train_img_dir:
+                ds.imgs_train = [(os.path.join(self.train_img_dir, '{}.tar'.format(img_id.split('_')[0])), '{}.JPEG'.format(img_id)) for img_id in imgs_train]
+            if self.val_img_dir:
+                ds.imgs_test = [os.path.join(self.val_img_dir, '{}.JPEG'.format(img_id)) for img_id, lbl in zip(self.val_ids, self.val_labels) if lbl in [pos_synset] + list(neg_synsets)]
+            if (ds.imgs_train is not None) and (ds.imgs_test is not None):
+                ds.imgs = ds.imgs_train + ds.imgs_test
+            yield ds
     
     
     def _load_meta(self, meta_file, val_label_file):
@@ -392,19 +408,28 @@ class ImageNetDataset(MultitaskRetrievalDataset):
     
     def _load_train_data(self, pos_synset, neg_synsets):
         
-        X = self._load_feat(os.path.join(self.sbow_dir, 'train', '{}.sbow.mat'.format(self.synsets[pos_synset])))
+        X, img_ids = self._load_feat(os.path.join(self.sbow_dir, 'train', '{}.sbow.mat'.format(self.synsets[pos_synset])))
         y = np.ones(len(X))
         
         for syn in neg_synsets:
-            X = np.concatenate([X, self._load_feat(os.path.join(self.sbow_dir, 'train', '{}.sbow.mat'.format(self.synsets[syn])))])
+            neg_feat, neg_ids = self._load_feat(os.path.join(self.sbow_dir, 'train', '{}.sbow.mat'.format(self.synsets[syn])))
+            X = np.concatenate([X, neg_feat])
+            img_ids += neg_ids
         y = np.concatenate([y, np.zeros(len(X) - len(y))])
         
-        return X, y
+        return X, y, img_ids
     
     
     def _load_val_data(self):
         
-        self.val_feat = np.concatenate([self._load_feat(os.path.join(self.sbow_dir, 'val', 'val.{:04d}.sbow.mat'.format(i))) for i in range(1, 51)])
+        feat, ids = [], []
+        for i in range(1, 51):
+            X, img_ids = self._load_feat(os.path.join(self.sbow_dir, 'val', 'val.{:04d}.sbow.mat'.format(i)))
+            feat.append(X)
+            ids += img_ids
+        
+        self.val_feat = np.concatenate(feat)
+        self.val_ids = np.array(ids)
     
     
     def _load_feat(self, mat_file):
@@ -412,7 +437,8 @@ class ImageNetDataset(MultitaskRetrievalDataset):
         feat = scipy.io.loadmat(mat_file)['image_sbow'].ravel()
         X = np.array([np.bincount(f[1]['word'][0,0].ravel(), minlength = 1000) for f in feat], dtype = float)
         X /= np.linalg.norm(X, axis = -1, keepdims = True)
-        return X
+        ids = [f[0][0] for f in feat]
+        return X, ids
 
 
 

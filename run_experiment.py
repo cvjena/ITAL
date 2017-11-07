@@ -7,7 +7,7 @@ from tqdm import tqdm, trange
 
 from collections import OrderedDict
 
-import utils
+import utils, viz_utils
 from datasets import MultitaskRetrievalDataset
 from italia.regression_base import ActiveRegressionBase
 
@@ -89,7 +89,7 @@ def run_retrieval_experiment(config, dataset, learner, plot = False, plot_hist =
                 it_ndcgs.append(utils.ndcg(test_relevance, test_scores))
 
                 if plot:
-                    utils.plot_learning_step(dataset, query, relevance, learner, [], [])
+                    viz_utils.plot_learning_step(dataset, query, relevance, learner, [], [])
 
                 for r in trange(config.getint('EXPERIMENT', 'rounds', fallback = 10), desc = 'Feedback rounds', leave = False, dynamic_ncols = True):
 
@@ -104,7 +104,7 @@ def run_retrieval_experiment(config, dataset, learner, plot = False, plot_hist =
                     it_ndcgs.append(utils.ndcg(test_relevance, test_scores))
 
                     if plot:
-                        utils.plot_learning_step(dataset, query, relevance, learner, ret, fb)
+                        viz_utils.plot_learning_step(dataset, query, relevance, learner, ret, fb)
 
                 aps[(di,lbl)].append(it_aps)
                 ndcgs[(di,lbl)].append(it_ndcgs)
@@ -164,7 +164,7 @@ def run_regression_experiment(config, dataset, learner, plot = False, plot_hist 
         it_rmses = [np.sqrt(mean_squared_error(dataset.y_test, test_predictions))]
         
         if plot:
-            utils.plot_regression_step(dataset, init, learner, [], [])
+            viz_utils.plot_regression_step(dataset, init, learner, [], [])
         
         for r in trange(config.getint('EXPERIMENT', 'rounds', fallback = 10), desc = 'Feedback rounds', leave = False, dynamic_ncols = True):
             
@@ -178,7 +178,7 @@ def run_regression_experiment(config, dataset, learner, plot = False, plot_hist 
             it_rmses.append(np.sqrt(mean_squared_error(dataset.y_test, test_predictions)))
             
             if plot:
-                utils.plot_regression_step(dataset, init, learner, ret, fb)
+                viz_utils.plot_regression_step(dataset, init, learner, ret, fb)
         
         rmses.append(it_rmses)
     
