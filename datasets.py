@@ -2,6 +2,7 @@ import numpy as np
 import csv
 import os.path
 import pickle
+from glob import glob
 
 import sklearn.datasets
 from sklearn.model_selection import train_test_split
@@ -135,6 +136,77 @@ class RetrievalDataset(Dataset):
         
         self.labels = np.unique(self.y)
         self.class_relevance = { lbl : (2 * (self.y_train == lbl) - 1, 2 * (self.y_test == lbl) - 1) for lbl in self.labels }
+
+
+
+class MultilabelRetrievalDataset(RetrievalDataset):
+    """ A dataset for information retrieval where samples can belong to multiple labels.
+    
+    For such datasets, the properties y, y_train, and y_test are lists of lists of labels.
+    """
+    
+    def __init__(self, X, y, X_test = None, y_test = None, imgs = None, imgs_test = None, test_size = 0.2):
+        """ Initializes a dataset from given data, optionally automatically splitting it into training and validation set.
+        
+        # Arguments:
+        
+        - X: array of all samples in case of automatic splitting, otherwise array of training samples.
+        
+        - y: list with lists of labels for all samples in case of automatic splitting, otherwise array of training labels
+        
+        - X_test: optionally, array of test samples.
+        
+        - y_test: optionally, list of test labels.
+        
+        - imgs: optionally, list of images belonging to the features in X.
+        
+        - imgs_test: optionally, list of images belonging to the features in X_test.
+        
+        - test_size: either a float specifying the fraction of the data to be used for
+                     validation or an integer specifying the absolute number of
+                     validation samples. Has no effect if X_test and y_test are given explicitly.
+        """
+        
+        if (X_test is None) or (y_test is None):
+        
+            self.X = np.array(X)
+            self.y = list(y)
+
+            if imgs:
+                self.imgs = imgs
+                self.X_train, self.X_test, self.y_train, self.y_test, self.imgs_train, self.imgs_test = train_test_split(self.X, self.y, self.imgs, test_size = test_size, random_state = 0)
+            else:
+                self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(self.X, self.y, test_size = test_size, random_state = 0)
+                self.imgs = self.imgs_train = self.imgs_test = None
+        
+        else:
+            
+            self.X_train = np.array(X)
+            self.y_train = list(y)
+            self.X_test = np.array(X_test)
+            self.y_test = list(y_test)
+            self.imgs_train = imgs if imgs else None
+            self.imgs_test = imgs_test if imgs_test else None
+            
+            self.X = np.concatenate([self.X_train, self.X_test])
+            self.y = self.y_train + self.y_test
+            if (self.imgs_train is not None) and (self.imgs_test is not None):
+                self.imgs = self.imgs_train + self.imgs_test
+            else:
+                self.imgs = None
+        
+        self._preprocess()
+    
+    
+    def _preprocess(self):
+        
+        Dataset._preprocess(self)
+        
+        self.labels = set(lbl for lbls in self.y for lbl in lbls)
+        self.class_relevance = { lbl : (
+            np.array([1 if lbl in lbls else -1 for lbls in self.y_train]),
+            np.array([1 if lbl in lbls else -1 for lbls in self.y_test])
+        ) for lbl in self.labels }
 
 
 
@@ -319,6 +391,47 @@ class NaturalScenesDataset(RetrievalDataset):
             dump = pickle.load(f)
         
         RetrievalDataset.__init__(self, dump['X_pca'], dump['y'], **kwargs)
+
+
+
+class MIRFLICKRDataset(MultilabelRetrievalDataset):
+    """ Interface to the MIRFLICKR dataset.
+    
+    http://press.liacs.nl/mirflickr/
+    """
+    
+    def __init__(self, feat_dump, gt_dir, gt_pattern = '*_r1.txt', img_dir = None, **kwargs):
+        """ Loads the MIRFLICKR dataset.
+        
+        # Arguments:
+        
+        - feat_dump: Path to a numpy file containing a 2-D array with features.
+        
+        - gt_dir: Path to a directory containing ground-truth label files, one file per label.
+                  The content of each file must be a list of image IDs (counting from 1) belonging
+                  to the class, one ID per line.
+        
+        - gt_pattern: Glob pattern for the ground-truth label files in the given directory.
+        
+        - img_dir: Path to a directory containing the MIRFLICKR images.
+        """
+        
+        X = np.load(feat_dump)
+        y = [[] for i in range(X.shape[0])]
+        
+        gt_files = glob(os.path.join(gt_dir, gt_pattern))
+        for lbl, gt_file in enumerate(gt_files):
+            with open(gt_file) as f:
+                for l in f:
+                    if l.strip() != '':
+                        y[int(l.strip()) - 1].append(lbl)
+        
+        if img_dir is not None:
+            imgs = [os.path.join(img_dir, 'im{}.jpg'.format(i+1)) for i in range(X.shape[0])]
+        else:
+            imgs = None
+        
+        MultilabelRetrievalDataset.__init__(self, X, y, imgs = imgs, **kwargs)
 
 
 
