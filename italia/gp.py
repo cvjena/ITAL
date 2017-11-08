@@ -222,7 +222,7 @@ class GaussianProcess(object):
             pred_cov = k_test_test - np.dot(k_test.T, np.dot(self.K_inv, k_test))
             return pred_mean, pred_cov
         elif cov_mode == 'diag':
-            pred_var = (self.var - np.sum(k_test * np.dot(self.K_inv, k_test), axis = 0))
+            pred_var = np.maximum(0, self.var - np.sum(k_test * np.dot(self.K_inv, k_test), axis = 0))
             return pred_mean, pred_var
         else:
             return pred_mean
@@ -282,7 +282,7 @@ class GaussianProcess(object):
             pred_cov = self.kernel(X, X) - np.dot(k_test.T, np.dot(self.K_inv, k_test))
             return pred_mean, pred_cov
         elif cov_mode == 'diag':
-            pred_var = (self.var - np.sum(k_test * np.dot(self.K_inv, k_test), axis = 0))
+            pred_var = np.maximum(0, self.var - np.sum(k_test * np.dot(self.K_inv, k_test), axis = 0))
             return pred_mean, pred_var
         else:
             return pred_mean
@@ -335,7 +335,7 @@ class GaussianProcess(object):
                 pred_var = np.diag(self._cov_cache[cov_cache_key])
             else:
                 pred_var = (self.var - np.sum(k_test * np.dot(K_inv, k_test), axis = 0))
-            return pred_mean, pred_var
+            return pred_mean, np.maximum(0, pred_var)
         else:
             return pred_mean
     

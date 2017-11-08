@@ -468,7 +468,7 @@ class SUD(ActiveRetrievalBase):
         
         # Compute uncertainty (entropy) for all candidates
         rel_mean, rel_var = self.gp.predict_stored(candidates, cov_mode = 'diag')
-        irr_prob = np.maximum(1e-8, np.minimum(1.0 - 1e-8, scipy.stats.norm.cdf(0, rel_mean, np.sqrt(rel_var))))
+        irr_prob = np.maximum(1e-8, np.minimum(1.0 - 1e-8, scipy.stats.norm.cdf(0, rel_mean, np.sqrt(rel_var + self.gp.noise))))
         rel_prob = 1.0 - irr_prob
         unc = -1 * (rel_prob * np.log(rel_prob) + irr_prob * np.log(irr_prob))
         
@@ -494,7 +494,7 @@ class RBMAL(ActiveRetrievalBase):
         
         # Compute relevance probabilities and uncertainties for all unlabeled samples
         rel_mean, rel_var = self.gp.predict_stored(cov_mode = 'diag')
-        irr_prob = scipy.stats.norm.cdf(0, rel_mean, np.sqrt(rel_var))
+        irr_prob = scipy.stats.norm.cdf(0, rel_mean, np.sqrt(rel_var + self.gp.noise))
         unc = 1.0 - np.abs(1.0 - 2 * irr_prob)
         
         # Greedily select samples maximizing a trade-off between uncertainty and similarity to already selected and training samples
