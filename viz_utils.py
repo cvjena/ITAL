@@ -248,6 +248,6 @@ def canonicalize_image(img, color = True, channels_first = False):
 def canonicalize_img_name(img):
     
     if isinstance(img, str):
-        return os.path.splitext(os.path.basename(str))[0]
+        return os.path.splitext(os.path.basename(img))[0]
     elif (isinstance(img, tuple) or isinstance(img, list)) and (len(img) == 2) and isinstance(img[1], str):
         return os.path.splitext(img[1])[0]
