@@ -1,6 +1,5 @@
 import numpy as np
-import scipy.stats
-import scipy.spatial.distance
+import scipy.stats, scipy.linalg, scipy.spatial.distance
 
 import math
 import itertools
@@ -647,7 +646,9 @@ class USDM(ActiveRetrievalBase):
         
         for it in range(self.max_iter):
             
-            A = K + mu * (np.ones((n, n)) + np.eye(n))
+            A = K.copy()
+            A += mu
+            A[np.arange(A.shape[0]),np.arange(A.shape[0])] += mu
             e = mu * (v + np.ones(n)) - (lambda2 + lambda1 * np.ones(n)) - b
             f = np.linalg.solve(A, e)
             v = f + lambda2 / mu
