@@ -145,10 +145,10 @@ def plot_learning_step(dataset, queries, relevance, learner, ret, fb):
         for r, ax in zip(ret, axes[1]):
             ax.imshow(canonicalize_image(dataset.imgs_train[r]), interpolation = 'bicubic', cmap = plt.cm.gray)
             ax.set_title(canonicalize_img_name(dataset.imgs_train[r]), fontsize = 6)
-        top_ret = np.argsort(learner.rel_mean)[::-1][:cols*(len(axes)-2)]
+        top_ret = np.argsort(learner.gp.predict(dataset.X_test_norm))[::-1][:cols*(len(axes)-2)]
         for r, ax in zip(top_ret, axes[2:].ravel()):
-            ax.imshow(canonicalize_image(dataset.imgs_train[r]), interpolation = 'bicubic', cmap = plt.cm.gray)
-            ax.set_title(canonicalize_img_name(dataset.imgs_train[r]), fontsize = 6)
+            ax.imshow(canonicalize_image(dataset.imgs_test[r]), interpolation = 'bicubic', cmap = plt.cm.gray)
+            ax.set_title(canonicalize_img_name(dataset.imgs_test[r]), fontsize = 6)
         for ax in axes.ravel():
             ax.axis('off')
         fig.tight_layout()
