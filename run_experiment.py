@@ -72,6 +72,7 @@ def run_retrieval_experiment(config, dataset, learner, plot = False, plot_hist =
                     pass
 
         # Run multiple active retrieval rounds for each class
+        num_initial_negatives = config.getint('EXPERIMENT', 'initial_negatives', fallback = 0)
         for lbl in tqdm(query_classes, desc = 'Classes', leave = False, dynamic_ncols = True):
             relevance, test_relevance = dataset.class_relevance[lbl]
             aps[(di,lbl)] = []
@@ -82,6 +83,10 @@ def run_retrieval_experiment(config, dataset, learner, plot = False, plot_hist =
 
                 learner.reset()
                 learner.update({ q : 1 for q in query })
+
+                if num_initial_negatives > 0:
+                    neg_ind = np.argpartition(learner.rel_mean, num_initial_negatives - 1)[:num_initial_negatives]
+                    learner.update({ ni : -1 for ni in neg_ind })
 
                 it_aps, it_ndcgs = [], []
                 test_scores = learner.gp.predict(dataset.X_test_norm)
