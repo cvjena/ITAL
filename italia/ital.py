@@ -14,7 +14,7 @@ class ITAL(ActiveRetrievalBase):
     
     def __init__(self, data = None, queries = [], length_scale = 0.1, var = 1.0, noise = 1e-6,
                  label_prob = 1.0, mistake_prob = 0.0,
-                 change_estimation_subset = 0, clip_cov = 0, label_estimation = 'mean',
+                 top_candidates = None, change_estimation_subset = 0, clip_cov = 0, label_estimation = 'mean',
                  monte_carlo_num_rel = None, monte_carlo_num_fb = None,
                  parallelized = True):
         """
@@ -33,6 +33,11 @@ class ITAL(ActiveRetrievalBase):
         - label_prob: the assumed probability that the user annotates a sample.
         
         - mistake_prob: the assumed probability that a label provided by the user is wrong.
+        
+        - top_candidates: If set to a positive integer, the set of unlabeled samples to choose candidates from will
+                          be restricted to this number of topscoring samples, according to the current relevance model.
+                          If set to a floating point number, the number of topscoring samples will be calculated as
+                          this value times the number of already labelled samples.
         
         - change_estimation_subset: If greater than 0, the model output change `p(r|f,a)/p(r|a)` will be estimated
                                     from this number of randomly selected additional samples and not only from the
@@ -65,6 +70,7 @@ class ITAL(ActiveRetrievalBase):
         ActiveRetrievalBase.__init__(self, data, queries, length_scale, var, noise)
         self.label_prob = label_prob
         self.mistake_prob = mistake_prob
+        self.top_candidates = top_candidates
         self.change_estimation_subset = change_estimation_subset
         self.clip_cov = clip_cov
         self.label_estimation = label_estimation
@@ -86,12 +92,14 @@ class ITAL(ActiveRetrievalBase):
             list of indices of selected samples in the data matrix passed to __init__().
         """
         
+        # Build list of indices of unlabelled samples
         candidates = [i for i in range(len(self.data)) \
                       if (i not in self.relevant_ids) \
                       and (i not in self.irrelevant_ids)]
         if len(candidates) < k:
             k = len(candidates)
         
+        # Randomly choose change estimation subset if needed
         if self.change_estimation_subset is None:
             self._ce_subset = candidates
         elif self.change_estimation_subset > 0:
@@ -99,6 +107,16 @@ class ITAL(ActiveRetrievalBase):
         else:
             self._ce_subset = None
         
+        # Restrict candidates to topscoring samples if wanted
+        if self.top_candidates is not None:
+            top_candidates = self.top_candidates
+            if isinstance(self.top_candidates, float):
+                top_candidates = min(len(candidates), int(self.top_candidates * (len(self.queries) + len(self.relevant_ids) + len(self.irrelevant_ids))))
+            if (top_candidates > 0) and (top_candidates < len(candidates)):
+                top_ind = np.argpartition(self.rel_mean[candidates], -top_candidates )[-top_candidates:]
+                candidates = [candidates[i] for i in top_ind]
+        
+        # Greedy batch construction
         mutual_information = AppendedMutualInformation(self)
         steps = trange(k) if show_progress else range(k)
         for it in steps:
