@@ -52,6 +52,7 @@ class ActiveRetrievalBase(object):
         self.rounds = 0
         self.relevant_ids = set()
         self.irrelevant_ids = set()
+        self.unnameable_ids = set()
         
         if len(self.queries) > 0:
             self.gp.fit(np.arange(len(self.data), len(self.data) + len(self.queries)), [1] * len(self.queries))
@@ -101,7 +102,7 @@ class ActiveRetrievalBase(object):
         """
         
         
-        rel, irr = self.partition_feedback(feedback)
+        rel, irr, unnameable = self.partition_feedback(feedback)
         if len(rel) + len(irr) > 0:
         
             self.gp.update(rel + irr, np.concatenate((np.ones(len(rel)), -1 * np.ones(len(irr)))))
@@ -110,6 +111,8 @@ class ActiveRetrievalBase(object):
             self.relevant_ids.update(rel)
             self.irrelevant_ids.update(irr)
             self.rounds += 1
+        
+        self.unnameable_ids.update(unnameable)
     
     
     def updated_prediction(self, feedback, test_ind, cov_mode = 'full'):
@@ -136,7 +139,7 @@ class ActiveRetrievalBase(object):
             - If cov_mode is 'full': a tuple of a length-n vector with predictive means and a n-by-n covariance matrix.
         """
         
-        rel, irr = self.partition_feedback(feedback)
+        rel, irr, _ = self.partition_feedback(feedback)
         if len(rel) + len(irr) == 0:
             return self.predict_stored(test_ind, cov_mode=cov_mode)
         else:
@@ -163,7 +166,7 @@ class ActiveRetrievalBase(object):
             a tuple with a list of relevant indices and a list of irrelevant indices.
         """
         
-        rel, irr = [], []
+        rel, irr, unnameable = [], [], []
         for i, fb in feedback.items():
             if fb > 0:
                 if i in self.irrelevant_ids:
@@ -175,4 +178,6 @@ class ActiveRetrievalBase(object):
                     raise RuntimeError('Cannot change feedback once given.')
                 elif i not in self.irrelevant_ids:
                     irr.append(i)
-        return rel, irr
+            else:
+                unnameable.append(i)
+        return rel, irr, unnameable

@@ -95,7 +95,8 @@ class ITAL(ActiveRetrievalBase):
         # Build list of indices of unlabelled samples
         candidates = [i for i in range(len(self.data)) \
                       if (i not in self.relevant_ids) \
-                      and (i not in self.irrelevant_ids)]
+                      and (i not in self.irrelevant_ids) \
+                      and (i not in self.unnameable_ids)]
         if len(candidates) < k:
             k = len(candidates)
         
