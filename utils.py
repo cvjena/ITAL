@@ -17,6 +17,7 @@ LEARNERS = {
     'ITAL'      : ITAL,
     'EMOC'      : EMOC,
     'MCMI'      : MCMI_min,
+    'AdaptAL'   : AdaptAL,
     'SUD'       : SUD,
     'RBMAL'     : RBMAL,
     'TCAL'      : TCAL,

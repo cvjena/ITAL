@@ -26,8 +26,12 @@ def invh(M):
         if M.dtype != np.float64:
             M = M.astype(np.float64)
     
-    zz , _ = potrf(M, False, False)
+    zz , info = potrf(M, False, False)
+    if info > 0:
+        warnings.warn('Matrix is not positive semi-definite.', stacklevel = 2)
     inv_M , info = potri(zz)
+    if info > 0:
+        warnings.warn('Matrix inversion could not be completed.', stacklevel = 2)
     i, j = np.triu_indices_from(inv_M, k = 1)
     inv_M[j, i] = inv_M[i, j]
     return inv_M

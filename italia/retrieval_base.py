@@ -48,7 +48,6 @@ class ActiveRetrievalBase(object):
     def reset(self):
         """ Resets the learner to its initial state directly after __init__(). """
         
-        
         self.rounds = 0
         self.relevant_ids = set()
         self.irrelevant_ids = set()
