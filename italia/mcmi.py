@@ -54,9 +54,7 @@ class MCMI_min(ActiveRetrievalBase):
             list of indices of selected samples in the data matrix passed to __init__().
         """
         
-        self.candidates = [i for i in range(len(self.data)) \
-                      if (i not in self.relevant_ids) \
-                      and (i not in self.irrelevant_ids)]
+        self.candidates = self.get_unseen()
         if len(self.candidates) < k:
             k = len(self.candidates)
         

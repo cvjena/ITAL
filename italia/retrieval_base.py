@@ -75,6 +75,18 @@ class ActiveRetrievalBase(object):
         return ind[:k] if k is not None else ind
     
     
+    def get_unseen(self):
+        """ Returns a list of indices of samples that have not been shown to the user yet.
+        
+        Returns: list of indices referring to samples in the data matrix passed to __init__().
+        """
+        
+        return [i for i in range(len(self.data)) \
+                  if (i not in self.relevant_ids) \
+                  and (i not in self.irrelevant_ids) \
+                  and (i not in self.unnameable_ids)]
+    
+    
     def fetch_unlabelled(self, k):
         """ Fetches a batch of unlabelled samples to be annotated from the data matrix passed to __init__().
         

@@ -15,10 +15,7 @@ class RandomRetrieval(ActiveRetrievalBase):
     
     def fetch_unlabelled(self, k):
         
-        candidates = [i for i in range(len(self.data)) \
-                      if (i not in self.relevant_ids) \
-                      and (i not in self.irrelevant_ids)]
-        
+        candidates = self.get_unseen()
         return np.random.choice(candidates, min(k, len(candidates)), replace = False)
 
 
@@ -27,9 +24,7 @@ class RandomRetrieval_Regression(ActiveRegressionBase):
     
     def fetch_unlabelled(self, k):
         
-        candidates = [i for i in range(len(self.data)) \
-                      if i not in self.labeled_ids]
-        
+        candidates = self.get_unseen()
         return np.random.choice(candidates, min(k, len(candidates)), replace = False)
 
 
@@ -42,7 +37,7 @@ class TopscoringSampling(ActiveRetrievalBase):
         ranking = np.argsort(self.rel_mean)[::-1]
         ret = []
         for i in ranking:
-            if (i not in self.relevant_ids) and (i not in self.irrelevant_ids):
+            if (i not in self.relevant_ids) and (i not in self.irrelevant_ids) and (i not in self.unnameable_ids):
                 ret.append(i)
                 if len(ret) >= k:
                     break
@@ -58,7 +53,7 @@ class BorderlineSampling(ActiveRetrievalBase):
         ranking = np.argsort(np.abs(self.rel_mean))
         ret = []
         for i in ranking:
-            if (i not in self.relevant_ids) and (i not in self.irrelevant_ids):
+            if (i not in self.relevant_ids) and (i not in self.irrelevant_ids) and (i not in self.unnameable_ids):
                 ret.append(i)
                 if len(ret) >= k:
                     break
@@ -86,7 +81,7 @@ class BorderlineDiversitySampling(ActiveRetrievalBase):
     
     def fetch_unlabelled(self, k):
         
-        candidates = [i for i in range(len(self.data)) if (i not in self.relevant_ids) and (i not in self.irrelevant_ids)]
+        candidates = self.get_unseen()
         
         # Select sample closest to the decision boundary as first sample
         min_ind = np.argmin(np.abs(self.rel_mean[candidates]))
@@ -139,7 +134,7 @@ class VarianceSampling(ActiveRetrievalBase):
             
             ret = [max(range(rel_var.size), key = lambda i: rel_var[i] if (i not in self.relevant_ids) and (i not in self.irrelevant_ids) else 0)]
             for l in range(1, k):
-                candidates = [i for i in range(rel_var.size) if (i not in self.relevant_ids) and (i not in self.irrelevant_ids) and (i not in ret)]
+                candidates = [i for i in range(rel_var.size) if (i not in self.relevant_ids) and (i not in self.irrelevant_ids) and (i not in self.unnameable_ids) and (i not in ret)]
                 if len(candidates) == 0:
                     break
                 covs = self.gp.predict_cov_batch(ret, candidates)
@@ -152,7 +147,7 @@ class VarianceSampling(ActiveRetrievalBase):
             ranking = np.argsort(rel_var)[::-1]
             ret = []
             for i in ranking:
-                if (i not in self.relevant_ids) and (i not in self.irrelevant_ids):
+                if (i not in self.relevant_ids) and (i not in self.irrelevant_ids) and (i not in self.unnameable_ids):
                     ret.append(i)
                     if len(ret) >= k:
                         break
@@ -184,7 +179,7 @@ class VarianceSampling_Regression(ActiveRegressionBase):
             
             ret = [max(range(var.size), key = lambda i: var[i] if i not in self.labeled_ids else 0)]
             for l in range(1, k):
-                candidates = [i for i in range(var.size) if (i not in self.labeled_ids) and (i not in ret)]
+                candidates = [i for i in range(var.size) if (i not in self.labeled_ids) and (i not in self.unnameable_ids) and (i not in ret)]
                 if len(candidates) == 0:
                     break
                 covs = self.gp.predict_cov_batch(ret, candidates)
@@ -197,7 +192,7 @@ class VarianceSampling_Regression(ActiveRegressionBase):
             ranking = np.argsort(var)[::-1]
             ret = []
             for i in ranking:
-                if i not in self.labeled_ids:
+                if (i not in self.labeled_ids) and (i not in self.unnameable_ids):
                     ret.append(i)
                     if len(ret) >= k:
                         break
@@ -223,7 +218,7 @@ class UncertaintySampling(ActiveRetrievalBase):
         ranking = np.argsort(np.abs(mean) / np.sqrt(variance + self.gp.noise))
         ret = []
         for i in ranking:
-            if (i not in self.relevant_ids) and (i not in self.irrelevant_ids):
+            if (i not in self.relevant_ids) and (i not in self.irrelevant_ids) and (i not in self.unnameable_ids):
                 ret.append(i)
                 if len(ret) >= k:
                     break
@@ -249,7 +244,7 @@ class EntropySampling(ActiveRetrievalBase):
         rel_mean = rel_mean[:len(self.data)]
         rel_var = rel_var[:len(self.data)]
         
-        candidates = [i for i in range(rel_mean.size) if (i not in self.relevant_ids) and (i not in self.irrelevant_ids)]
+        candidates = self.get_unseen()
         max_ind = max(range(len(candidates)), key = lambda i: self.__class__.single_entropy(rel_mean[candidates[i]], rel_var[candidates[i]]))
         ret = [candidates[max_ind]]
 
@@ -314,7 +309,7 @@ class EntropySampling_Regression(ActiveRegressionBase):
         
         _, var = self.gp.predict_stored(cov_mode = 'diag')
         
-        candidates = [i for i in range(len(var)) if i not in self.labeled_ids]
+        candidates = self.get_unseen()
         max_ind = max(range(len(candidates)), key = lambda i: self.single_entropy(var[candidates[i]]))
         ret = [candidates[max_ind]]
 
@@ -352,9 +347,7 @@ class EMOC(ActiveRetrievalBase):
     def fetch_unlabelled(self, k):
         
         # Build list of candidate sample indices
-        candidates = np.array([i for i in range(len(self.data)) \
-                               if (i not in self.relevant_ids) \
-                               and (i not in self.irrelevant_ids)])
+        candidates = np.array(self.get_unseen())
         if len(candidates) < k:
             k = len(candidates)
         
@@ -402,7 +395,7 @@ class EMOC_Regression(ActiveRegressionBase):
     def fetch_unlabelled(self, k):
         
         # Build list of candidate sample indices
-        candidates = np.array([i for i in range(len(self.data)) if (i not in self.labeled_ids)])
+        candidates = np.array(self.get_unseen())
         if len(candidates) < k:
             k = len(candidates)
         
@@ -464,7 +457,7 @@ class SUD(ActiveRetrievalBase):
     
     def fetch_unlabelled(self, k):
         
-        candidates = [i for i in range(len(self.data)) if (i not in self.relevant_ids) and (i not in self.irrelevant_ids)]
+        candidates = self.get_unseen()
         
         # Compute uncertainty (entropy) for all candidates
         rel_mean, rel_var = self.gp.predict_stored(candidates, cov_mode = 'diag')
@@ -499,7 +492,7 @@ class RBMAL(ActiveRetrievalBase):
         
         # Greedily select samples maximizing a trade-off between uncertainty and similarity to already selected and training samples
         train_ids = list(self.relevant_ids | self.irrelevant_ids)
-        candidates = [i for i in range(rel_mean.size) if (i not in self.relevant_ids) and (i not in self.irrelevant_ids)]
+        candidates = self.get_unseen()
         ret = []
         for l in range(1, k):
             
@@ -546,7 +539,7 @@ class TCAL(ActiveRetrievalBase):
     
     def fetch_unlabelled(self, k):
         
-        candidates = np.array([i for i in range(len(self.data)) if (i not in self.relevant_ids) and (i not in self.irrelevant_ids)])
+        candidates = np.array(self.get_unseen())
         
         # Select sample closest to the decision
         m = self.unc_factor * k
@@ -620,7 +613,7 @@ class USDM(ActiveRetrievalBase):
         labeled_ind = np.array(list(self.relevant_ids | self.irrelevant_ids))
         if len(self.queries) > 0:
             labeled_ind = np.concatenate((labeled_ind, np.arange(len(self.data), len(self.data) + len(self.queries))))
-        unlabeled_ind = np.setdiff1d(np.arange(len(self.data)), labeled_ind)
+        unlabeled_ind = np.setdiff1d(np.arange(len(self.data)), np.concatenate([labeled_ind, list(self.unnameable_ids)]))
         
         # Compute class probabilities and negated entropy
         y = np.array([1. if i in self.relevant_ids else 0. for i in labeled_ind])

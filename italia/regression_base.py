@@ -61,6 +61,7 @@ class ActiveRegressionBase(object):
         
         self.rounds = 0
         self.labeled_ids = set()
+        self.unnameable_ids = set()
         
         if len(self.train_init) > 0:
             self.gp.fit(self.train_init, self.y_init)
@@ -85,6 +86,17 @@ class ActiveRegressionBase(object):
         raise NotImplementedError('fetch_unlabelled() has to be implemented in a derived class.')
     
     
+    def get_unseen(self):
+        """ Returns a list of indices of samples that have not been shown to the user yet.
+        
+        Returns: list of indices referring to samples in the data matrix passed to __init__().
+        """
+        
+        return [i for i in range(len(self.data)) \
+                  if (i not in self.labeled_ids) \
+                  and (i not in self.unnameable_ids)]
+    
+    
     def update(self, feedback):
         """ Updates the model with new annotations.
         
@@ -95,7 +107,7 @@ class ActiveRegressionBase(object):
         """
         
         
-        ind, y = self.labeled_feedback(feedback)
+        ind, y, unnameable = self.labeled_feedback(feedback)
         if len(ind):
         
             self.gp.update(ind, y)
@@ -103,6 +115,8 @@ class ActiveRegressionBase(object):
 
             self.labeled_ids.update(ind)
             self.rounds += 1
+        
+        self.unnameable_ids.update(unnameable)
     
     
     def updated_prediction(self, feedback, test_ind, cov_mode = 'full'):
@@ -128,7 +142,7 @@ class ActiveRegressionBase(object):
             - If cov_mode is 'full': a tuple of a length-n vector with predictive means and a n-by-n covariance matrix.
         """
         
-        ind, val = self.labeled_feedback(feedback)
+        ind, val, _ = self.labeled_feedback(feedback)
         if len(ind) == 0:
             return self.predict_stored(test_ind, cov_mode = cov_mode)
         else:
@@ -145,10 +159,11 @@ class ActiveRegressionBase(object):
                     None can be used to indicate that a sample has not been annotated.
         
         # Returns:
-            a tuple with a list of indices of annotated samples and a list of assigned values.
+            a 3-tuple with a list of indices of annotated samples, a corresponding list of assigned values, and a list
+            of indices of samples for which no feedback has been given.
         """
         
-        ind, val = [], []
+        ind, val, unnameable = [], [], []
         for i, fb in feedback.items():
             if fb is not None:
                 if i in self.labeled_ids:
@@ -156,4 +171,6 @@ class ActiveRegressionBase(object):
                 elif i not in self.labeled_ids:
                     ind.append(i)
                     val.append(fb)
-        return ind, val
+            else:
+                unnameable.append(i)
+        return ind, val, unnameable

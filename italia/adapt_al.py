@@ -88,9 +88,7 @@ class AdaptAL(ActiveRetrievalBase):
         """
         
         
-        candidates = np.array([i for i in range(len(self.data)) \
-                               if (i not in self.relevant_ids) \
-                               and (i not in self.irrelevant_ids)])
+        candidates = self.get_unseen()
         if self.subsample and (self.subsample < len(candidates)):
             candidates  = np.random.choice(candidates, self.subsample, replace = False)
         if len(candidates) < k:
