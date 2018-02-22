@@ -27,15 +27,17 @@ default_init = { 'length_scale' : 0.1, 'var' : 1.0, 'noise' : 1e-6 }
 
 def cross_validate_gp(dataset, relevance, gp_params, n_folds = 10):
     
+    relevance = np.asarray(relevance)
+    not_unnameable = np.arange(len(dataset.X_train))[relevance != 0]
+    scores = np.ndarray((len(not_unnameable),), dtype = float)
     gp = GaussianProcess(dataset.X_train_norm, **gp_params)
-    scores = np.ndarray((len(dataset.X_train),), dtype = float)
     
     kfold = StratifiedKFold(n_folds, shuffle = True, random_state = 0) if relevance is not None else KFold(n_folds, shuffle = True, random_state = 0)
-    for train_ind, test_ind in kfold.split(dataset.X_train_norm, relevance):
-        gp.fit(train_ind, relevance[train_ind] if relevance is not None else dataset.y_train[train_ind])
-        scores[test_ind] = gp.predict_stored(test_ind)
+    for train_ind, test_ind in kfold.split(dataset.X_train_norm[not_unnameable], relevance[not_unnameable]):
+        gp.fit(not_unnameable[train_ind], relevance[not_unnameable[train_ind]] if relevance is not None else dataset.y_train[train_ind])
+        scores[test_ind] = gp.predict_stored(not_unnameable[test_ind])
     
-    return average_precision_score(relevance, scores) if relevance is not None else -math.sqrt(mean_squared_error(dataset.y_train, scores))
+    return average_precision_score(relevance[not_unnameable], scores) if relevance is not None else -math.sqrt(mean_squared_error(dataset.y_train, scores))
 
 
 def cross_validate_fewshot(dataset, relevance, gp_params, n_folds = 10):

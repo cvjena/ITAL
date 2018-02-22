@@ -89,7 +89,7 @@ class Dataset(object):
             self.X = np.array(X)
             self.y = np.array(y)
 
-            self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(self.X, self.y, test_size = test_size, random_state = 0)
+            self.X_train, self.X_test, self.y_train, self.y_test, self.ind_train, self.ind_test = train_test_split(self.X, self.y, np.arange(len(self.X)), test_size = test_size, random_state = 0)
         
         else:
             
@@ -121,7 +121,8 @@ class RetrievalDataset(Dataset):
     - labels: list of unique labels.
     
     - class_relevance: dictionary mapping labels to arrays specifying whether a sample
-                       is relevant for that label. Class relevance is given as 1 or -1.
+                       is relevant for that label. Class relevance is given as 1, -1, or 0
+                       if it is not certain whether the label belongs to the class or not.
     """
     
     def __init__(self, *args, **kwargs):
@@ -174,9 +175,9 @@ class MultilabelRetrievalDataset(RetrievalDataset):
 
             if imgs:
                 self.imgs = imgs
-                self.X_train, self.X_test, self.y_train, self.y_test, self.imgs_train, self.imgs_test = train_test_split(self.X, self.y, self.imgs, test_size = test_size, random_state = 0)
+                self.X_train, self.X_test, self.y_train, self.y_test, self.ind_train, self.ind_test, self.imgs_train, self.imgs_test = train_test_split(self.X, self.y, np.arange(len(self.X)), self.imgs, test_size = test_size, random_state = 0)
             else:
-                self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(self.X, self.y, test_size = test_size, random_state = 0)
+                self.X_train, self.X_test, self.y_train, self.y_test, self.ind_train, self.ind_test = train_test_split(self.X, self.y, np.arange(len(self.X)), test_size = test_size, random_state = 0)
                 self.imgs = self.imgs_train = self.imgs_test = None
         
         else:
@@ -418,6 +419,7 @@ class MIRFLICKRDataset(MultilabelRetrievalDataset):
         
         X = np.load(feat_dump)
         y = [[] for i in range(X.shape[0])]
+        self.y_wide = [[] for i in range(X.shape[0])]
         
         gt_files = glob(os.path.join(gt_dir, gt_pattern))
         for lbl, gt_file in enumerate(gt_files):
@@ -425,6 +427,10 @@ class MIRFLICKRDataset(MultilabelRetrievalDataset):
                 for l in f:
                     if l.strip() != '':
                         y[int(l.strip()) - 1].append(lbl)
+            with open(gt_file[:-7] + '.txt') as f:
+                for l in f:
+                    if l.strip() != '':
+                        self.y_wide[int(l.strip()) - 1].append(lbl)
         
         if img_dir is not None:
             imgs = [os.path.join(img_dir, 'im{}.jpg'.format(i+1)) for i in range(X.shape[0])]
@@ -432,6 +438,20 @@ class MIRFLICKRDataset(MultilabelRetrievalDataset):
             imgs = None
         
         MultilabelRetrievalDataset.__init__(self, X, y, imgs = imgs, **kwargs)
+    
+    
+    def _preprocess(self):
+        
+        Dataset._preprocess(self)
+        
+        self.y_wide_train = [self.y_wide[ind] for ind in self.ind_train]
+        self.y_wide_test = [self.y_wide[ind] for ind in self.ind_test]
+        
+        self.labels = set(lbl for lbls in self.y for lbl in lbls)
+        self.class_relevance = { lbl : (
+            np.array([1 if lbl in lbls else (0 if lbl in wide_labels else -1) for lbls, wide_labels in zip(self.y_train, self.y_wide_train)]),
+            np.array([1 if lbl in lbls else (0 if lbl in wide_labels else -1) for lbls, wide_labels in zip(self.y_test, self.y_wide_test)])
+        ) for lbl in self.labels }
 
 
 

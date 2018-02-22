@@ -189,12 +189,13 @@ def ndcg(y_true, y_score):
     
     rank, cgain, normalizer = 0, 0.0, 0.0
     for ret in retrieved:
-        rank += 1
-        gain = 1.0 / math.log2(rank + 1)
-        if y_true[ret] > 0:
-            cgain += gain
-        if rank <= num_relevant:
-            normalizer += gain
+        if y_true[ret] != 0:
+            rank += 1
+            gain = 1.0 / math.log2(rank + 1)
+            if y_true[ret] > 0:
+                cgain += gain
+            if rank <= num_relevant:
+                normalizer += gain
     
     return cgain / normalizer
 

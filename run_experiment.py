@@ -19,10 +19,14 @@ def simulate_retrieval_feedback(labels, ret, label_prob = 0.8, mistake_prob = 0.
     for i in ret:
         if np.random.rand() >= label_prob:
             fb.append(0)
-        elif (labels[i] > 0) and (np.random.rand() >= mistake_prob):
-            fb.append(1)
-        else:
+        elif np.random.rand() >= mistake_prob:
+            fb.append(labels[i])
+        elif labels[i] == 0:
+            fb.append(np.random.choice([-1, 1]))
+        elif labels[i] > 0:
             fb.append(-1)
+        else:
+            fb.append(1)
     return fb
 
 
@@ -75,6 +79,7 @@ def run_retrieval_experiment(config, dataset, learner, plot = False, plot_hist =
         num_initial_negatives = config.getint('EXPERIMENT', 'initial_negatives', fallback = 0)
         for lbl in tqdm(query_classes, desc = 'Classes', leave = False, dynamic_ncols = True):
             relevance, test_relevance = dataset.class_relevance[lbl]
+            nonzero_test_relevance = (np.asarray(test_relevance) != 0)
             aps[(di,lbl)] = []
             ndcgs[(di,lbl)] = []
             np.random.seed(0)
@@ -90,7 +95,7 @@ def run_retrieval_experiment(config, dataset, learner, plot = False, plot_hist =
 
                 it_aps, it_ndcgs = [], []
                 test_scores = learner.gp.predict(dataset.X_test_norm)
-                it_aps.append(average_precision_score(test_relevance, test_scores))
+                it_aps.append(average_precision_score(np.asarray(test_relevance)[nonzero_test_relevance], np.asarray(test_scores)[nonzero_test_relevance]))
                 it_ndcgs.append(utils.ndcg(test_relevance, test_scores))
 
                 if plot:
@@ -99,13 +104,11 @@ def run_retrieval_experiment(config, dataset, learner, plot = False, plot_hist =
                 for r in trange(config.getint('EXPERIMENT', 'rounds', fallback = 10), desc = 'Feedback rounds', leave = False, dynamic_ncols = True):
 
                     ret = learner.fetch_unlabelled(config.getint('EXPERIMENT', 'batch_size'))
-                    fb = [0]
-                    while all(fbi == 0 for fbi in fb):
-                        fb = simulate_retrieval_feedback(relevance, ret, label_prob = config.getfloat('EXPERIMENT', 'label_prob', fallback = 1.0), mistake_prob = config.getfloat('EXPERIMENT', 'mistake_prob', fallback = 0.0))
+                    fb = simulate_retrieval_feedback(relevance, ret, label_prob = config.getfloat('EXPERIMENT', 'label_prob', fallback = 1.0), mistake_prob = config.getfloat('EXPERIMENT', 'mistake_prob', fallback = 0.0))
                     learner.update(dict(zip(ret, fb)))
 
                     test_scores = learner.gp.predict(dataset.X_test_norm)
-                    it_aps.append(average_precision_score(test_relevance, test_scores))
+                    it_aps.append(average_precision_score(np.asarray(test_relevance)[nonzero_test_relevance], np.asarray(test_scores)[nonzero_test_relevance]))
                     it_ndcgs.append(utils.ndcg(test_relevance, test_scores))
 
                     if plot:
