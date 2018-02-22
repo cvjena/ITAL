@@ -442,7 +442,7 @@ class ImageNetDataset(MultitaskRetrievalDataset):
     A single positive and multiple negative classes are selected for each task.
     """
     
-    def __init__(self, sbow_dir, meta_file, val_label_file, train_img_dir = None, val_img_dir = None, num_tasks = 100, num_negative_classes = 9):
+    def __init__(self, sbow_dir, meta_file, val_label_file, train_img_dir = None, val_img_dir = None, num_tasks = 100, num_negative_classes = 9, task_file = None):
         """ Initializes the ImageNet dataset.
         
         # Arguments:
@@ -463,6 +463,12 @@ class ImageNetDataset(MultitaskRetrievalDataset):
         - num_tasks: number of random binary classification tasks.
         
         - num_negative_classes: number of negative classes per task.
+        
+        - task_file: Optionally, path to a text file specifying the retrieval tasks, one per line as white-space-separated list of synsets.
+                     The first synset in each list is the positive class and the remaining ones are negative.
+                     If this file exists, the specified tasks will override `num_tasks` and `num_negative`.
+                     If a path to a non-existent file is specified, the tasks generated according to `num_tasks` and `num_negative`
+                     will be stored in that file.
         """
         
         MultitaskRetrievalDataset.__init__(self)
@@ -481,7 +487,14 @@ class ImageNetDataset(MultitaskRetrievalDataset):
         
         # Create random subsets
         np.random.seed(0)
-        self.selected_synsets = [np.random.choice(len(self.synsets), num_negative_classes + 1, replace = False) for i in range(num_tasks)]
+        if (task_file is not None) and os.path.exists(task_file):
+            with open(task_file) as f:
+                self.selected_synsets = [[self.synsets.index(syn) for syn in l.strip().split()] for l in f if l.strip() != '']
+        else:
+            self.selected_synsets = [np.random.choice(len(self.synsets), num_negative_classes + 1, replace = False) for i in range(num_tasks)]
+            if task_file is not None:
+                with open(task_file, 'w') as f:
+                    f.write('\n'.join(' '.join(self.synsets[syn] for syn in synsets) for synsets in self.selected_synsets))
     
     
     def __len__(self):
