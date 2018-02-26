@@ -19,7 +19,7 @@ class MCMI_min(ActiveRetrievalBase):
     """
     
     def __init__(self, data = None, queries = [], length_scale = 0.1, var = 1.0, noise = 1e-6,
-                 parallelized = True):
+                 subsample = None, parallelized = True):
         """
         # Arguments:
         
@@ -33,11 +33,15 @@ class MCMI_min(ActiveRetrievalBase):
         
         - noise: the `sigma_noise` hyper-parameter of the kernel (see documentation of italia.gp.GaussianProcess).
         
+        - subsample: if set to a positive integer, the set of candidates will be restricted to a random subsample
+                     of unlabeled instance of the given size.
+        
         - parallelized: if set to True, conditional entropy for a set of candidate samples will be computed
                         in parallel using multiprocessing.
         """
         
         ActiveRetrievalBase.__init__(self, data, queries, length_scale, var, noise)
+        self.subsample = subsample
         self.parallelized = parallelized
     
     
@@ -55,6 +59,8 @@ class MCMI_min(ActiveRetrievalBase):
         """
         
         self.candidates = self.get_unseen()
+        if self.subsample and (self.subsample < len(self.candidates)):
+            self.candidates  = np.random.choice(self.candidates, self.subsample, replace = False).tolist()
         if len(self.candidates) < k:
             k = len(self.candidates)
         
