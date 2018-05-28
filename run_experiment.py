@@ -65,15 +65,18 @@ def run_retrieval_experiment(config, dataset, learner, plot = False, plot_hist =
             learner.fit(dataset.X_train_norm)
         
         # Get classes to draw queries from
-        query_classes = str(config.get('EXPERIMENT', 'query_classes', fallback = '')).split()
-        if len(query_classes) == 0:
-            query_classes = list(dataset.class_relevance.keys())
+        if dataset.queries is not None:
+            query_classes = list(dataset.queries.keys())
         else:
-            for i in range(len(query_classes)):
-                try:
-                    query_classes[i] = int(query_classes[i])
-                except ValueError:
-                    pass
+            query_classes = str(config.get('EXPERIMENT', 'query_classes', fallback = '')).split()
+            if len(query_classes) == 0:
+                query_classes = list(dataset.class_relevance.keys())
+            else:
+                for i in range(len(query_classes)):
+                    try:
+                        query_classes[i] = int(query_classes[i])
+                    except ValueError:
+                        pass
 
         # Run multiple active retrieval rounds for each class
         num_initial_negatives = config.getint('EXPERIMENT', 'initial_negatives', fallback = 0)
@@ -83,7 +86,10 @@ def run_retrieval_experiment(config, dataset, learner, plot = False, plot_hist =
             aps[(di,lbl)] = []
             ndcgs[(di,lbl)] = []
             np.random.seed(0)
-            queries = np.random.choice(np.nonzero(np.asarray(relevance) > 0)[0], (config.getint('EXPERIMENT', 'repetitions', fallback = 10), config.getint('EXPERIMENT', 'num_init', fallback = 1)), replace = False)
+            if dataset.queries is not None:
+                queries = dataset.queries[lbl]
+            else:
+                queries = np.random.choice(np.nonzero(np.asarray(relevance) > 0)[0], (config.getint('EXPERIMENT', 'repetitions', fallback = 10), config.getint('EXPERIMENT', 'num_init', fallback = 1)), replace = False)
             for query in tqdm(queries, desc = 'Class {}'.format(lbl), leave = False, dynamic_ncols = True):
 
                 learner.reset()

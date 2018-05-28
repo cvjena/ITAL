@@ -1,0 +1,5 @@
+radcliffe_camera_000519 68.3 51.2 682.7 989.9
+oxford_002904 5 4 761 774
+radcliffe_camera_000523 38 8 686 984
+radcliffe_camera_000095 66 131 670 837
+bodleian_000132 93 110 580 925

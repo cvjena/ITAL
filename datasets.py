@@ -123,12 +123,19 @@ class RetrievalDataset(Dataset):
     - class_relevance: dictionary mapping labels to arrays specifying whether a sample
                        is relevant for that label. Class relevance is given as 1, -1, or 0
                        if it is not certain whether the label belongs to the class or not.
+    
+    - queries: pre-defined queries to be used instead of random ones, given as indices dictionary
+               mapping labels to lists of lists of indices in the training dataset. For each label,
+               there should be a list containing queries. Each query is a list of image indices
+               being used as initial training images for that query.
     """
     
     def __init__(self, *args, **kwargs):
         
         Dataset.__init__(self, *args, **kwargs)
         self.imgs = self.imgs_train = self.imgs_test = None
+        if 'queries' not in self.__dict__:
+            self.queries = None
     
     
     def _preprocess(self):
@@ -362,7 +369,7 @@ class USPSDataset(RetrievalDataset):
     def _read_usps(self, data_file):
         
         with open(data_file) as f:
-            num_classes, num_features = [int(x) for x in f.readline().strip().split()]
+            f.readline()
             X, y = [], []
             for line in f:
                 if (line.strip() == '') or (line.strip() == '-1'):
@@ -392,6 +399,83 @@ class NaturalScenesDataset(RetrievalDataset):
             dump = pickle.load(f)
         
         RetrievalDataset.__init__(self, dump['X_pca'], dump['y'], **kwargs)
+
+
+
+class OxfordDataset(RetrievalDataset):
+    """ Interface to the Oxford5k dataset.
+    
+    http://www.robots.ox.ac.uk/~vgg/data/oxbuildings/
+    """
+    
+    def __init__(self, feat_dump, gt_dir, img_dir = None, **kwargs):
+        """ Loads the Oxford dataset.
+        
+        # Arguments:
+        
+        - feat_dump: Path to a pickle file containing a dictionary with an item 'feat' that refers to a
+                     a dictionary mapping image IDs to feature vectors.
+        
+        - gt_dir: Path to a directory containing ground-truth label and query files.
+                  For each label, there must be files suffixed with '_good.txt', '_ok.txt', and '_junk.txt'
+                  listing one image ID per line.
+                  In addition, there must be a file suffixed '_query.txt' for each label, containing lines
+                  with query image IDs and bounding box coordinates (which are just ignored by this dataset interface).
+        
+        - img_dir: Path to a directory containing the Oxford5k images.
+        """
+        
+        with open(feat_dump, 'rb') as feat_file:
+            dump = pickle.load(feat_file)['feat']
+            self.ids = list(dump.keys())
+            self.id2ind = { id : i for i, id in enumerate(self.ids) }
+            X = np.stack(list(dump.values()))
+            del dump
+        
+        y = [-1] * len(self.ids)
+        self.is_junk = [False] * len(self.ids)
+        self.queries = {}
+        
+        gt_files = glob(os.path.join(gt_dir, '*_good.txt'))
+        for lbl, gt_file in enumerate(gt_files):
+            with open(gt_file) as f:
+                for l in f:
+                    if l.strip() != '':
+                        y[self.id2ind[l.strip()]] = lbl
+            with open(gt_file.replace('_good.txt', '_ok.txt')) as f:
+                for l in f:
+                    if l.strip() != '':
+                        y[self.id2ind[l.strip()]] = lbl
+            with open(gt_file.replace('_good.txt', '_junk.txt')) as f:
+                for l in f:
+                    if l.strip() != '':
+                        y[self.id2ind[l.strip()]] = lbl
+                        self.is_junk[self.id2ind[l.strip()]] = True
+            self.queries[lbl] = []
+            with open(gt_file.replace('_good.txt', '_query.txt')) as f:
+                for l in f:
+                    if l.strip() != '':
+                        self.queries[lbl].append([self.id2ind[l.strip().split()[0]]])
+                        y[self.id2ind[l.strip().split()[0]]] = lbl
+        
+        y = np.asarray(y)
+        test_ind = np.setdiff1d(np.arange(X.shape[0]), [qind[0] for q in self.queries.values() for qind in q])
+        super(OxfordDataset, self).__init__(X, y, X[test_ind], y[test_ind], **kwargs)
+
+        if img_dir is not None:
+            self.imgs = self.imgs_train = [os.path.join(img_dir, '{}.jpg'.format(id)) for id in self.ids]
+            self.imgs_test = np.asarray(self.imgs)[test_ind].tolist()
+    
+    
+    def _preprocess(self):
+        
+        Dataset._preprocess(self)
+        
+        self.labels = np.unique(self.y)
+        self.class_relevance = { lbl : (
+                np.where(self.is_junk, np.zeros(len(self.y_train)), 2 * (self.y_train == lbl) - 1),
+                np.where(np.asarray(self.is_junk)[np.setdiff1d(np.arange(len(self.is_junk)), [qind[0] for q in self.queries.values() for qind in q])], np.zeros(len(self.y_test)), 2 * (self.y_test == lbl) - 1)
+            ) for lbl in self.labels }
 
 
 
