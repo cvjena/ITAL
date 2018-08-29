@@ -1,5 +1,7 @@
 # Information-Theoretic Active Learning (ITAL)
 
+![ITAL Toy Example][teaser]
+
 This repository contains the reference implementation of ITAL and the configuration files of the experiments described in the following paper:
 
 > [**Information-Theoretic Active Learning for Content-Based Image Retrieval.**][paper]  
@@ -121,5 +123,6 @@ The `MIRFLICKRDataset` can take a path to an image directory, which is not inclu
 For the ImageNet experiments, you need to download the [ILSVRC 2010][ilsvrc] devkit and the SBOW features and adjust the paths in the config file accordingly.
 
 
-[paper]: http://www.inf-cv.uni-jena.de/ "PDF"
+[paper]: http://hera.inf-cv.uni-jena.de:6680/pdf/Barz18:ITAL.pdf "PDF"
+[teaser]: https://user-images.githubusercontent.com/7915048/44797170-cf935a80-abae-11e8-89c8-fd5329a1de3a.png
 [ilsvrc]: http://image-net.org/challenges/LSVRC/2010/index
