@@ -26,14 +26,35 @@ default_init = { 'length_scale' : 0.1, 'var' : 1.0, 'noise' : 1e-6 }
 
 
 def cross_validate_gp(dataset, relevance, gp_params, n_folds = 10):
+    """ Performs k-fold cross-validation.
+
+    # Arguments:
+
+    - dataset: the dataset as datasets.Dataset instance.
+
+    - relevance: for retrieval tasks, an array specifying whether a sample
+                 is relevant. Class relevance is given as 1, -1, or 0 if it
+                 is not certain whether the label belongs to the class or not.
+                 None for regression tasks.
     
-    relevance = np.asarray(relevance)
-    not_unnameable = np.arange(len(dataset.X_train))[relevance != 0]
+    - gp_params: dictionary with keyword arguments passed to the GaussianProcess constructor.
+    
+    - n_folds: number of folds.
+
+    # Returns:
+        mean average precision for retrieval tasks or mean squared error for regression tasks.
+    """
+    
+    not_unnameable = np.arange(len(dataset.X_train))
+    if relevance is not None:
+        relevance = np.asarray(relevance)
+        not_unnameable = not_unnameable[relevance != 0]
+    
     scores = np.ndarray((len(not_unnameable),), dtype = float)
     gp = GaussianProcess(dataset.X_train_norm, **gp_params)
     
     kfold = StratifiedKFold(n_folds, shuffle = True, random_state = 0) if relevance is not None else KFold(n_folds, shuffle = True, random_state = 0)
-    for train_ind, test_ind in kfold.split(dataset.X_train_norm[not_unnameable], relevance[not_unnameable]):
+    for train_ind, test_ind in kfold.split(dataset.X_train_norm[not_unnameable], relevance[not_unnameable] if relevance is not None else None):
         gp.fit(not_unnameable[train_ind], relevance[not_unnameable[train_ind]] if relevance is not None else dataset.y_train[train_ind])
         scores[test_ind] = gp.predict_stored(not_unnameable[test_ind])
     
@@ -41,20 +62,70 @@ def cross_validate_gp(dataset, relevance, gp_params, n_folds = 10):
 
 
 def cross_validate_fewshot(dataset, relevance, gp_params, n_folds = 10):
+    """ Performs k-fold cross-validation, but training on the smaller fraction of the data and evaluating on the larger one.
+
+    # Arguments:
+
+    - dataset: the dataset as datasets.Dataset instance.
+
+    - relevance: for retrieval tasks, an array specifying whether a sample
+                 is relevant. Class relevance is given as 1, -1, or 0 if it
+                 is not certain whether the label belongs to the class or not.
+                 None for regression tasks.
+    
+    - gp_params: dictionary with keyword arguments passed to the GaussianProcess constructor.
+    
+    - n_folds: number of folds.
+
+    # Returns:
+        mean average precision for retrieval tasks or mean squared error for regression tasks over all splits.
+    """
+    
+    not_unnameable = np.arange(len(dataset.X_train))
+    if relevance is not None:
+        relevance = np.asarray(relevance)
+        not_unnameable = not_unnameable[relevance != 0]
     
     gp = GaussianProcess(dataset.X_train_norm, **gp_params)
     perf = []
     
     kfold = StratifiedKFold(n_folds, shuffle = True, random_state = 0) if relevance is not None else KFold(n_folds, shuffle = True, random_state = 0)
-    for train_ind, test_ind in kfold.split(dataset.X_train_norm, relevance):
-        gp.fit(test_ind, relevance[test_ind] if relevance is not None else dataset.y_train[train_ind])
-        scores = gp.predict_stored(train_ind)
-        perf.append(average_precision_score(relevance[train_ind], scores) if relevance is not None else -math.sqrt(mean_squared_error(dataset.y_train[train_ind], scores)))
+    for train_ind, test_ind in kfold.split(dataset.X_train_norm[not_unnameable], relevance[not_unnameable] if relevance is not None else None):
+        gp.fit(not_unnameable[test_ind], relevance[not_unnameable[test_ind]] if relevance is not None else dataset.y_train[test_ind])
+        scores = gp.predict_stored(not_unnameable[train_ind])
+        perf.append(average_precision_score(relevance[not_unnameable[train_ind]], scores) if relevance is not None else -math.sqrt(mean_squared_error(dataset.y_train[train_ind], scores)))
     
     return np.mean(perf)
 
 
 def optimize_gp_params(dataset, relevance, grid = default_grids['full'], init = default_init, n_folds = 10, fewshot = False, verbose = 1):
+    """ Optimizes the hyper-parameters of a GP kernel for a certain dataset.
+
+    # Arguments:
+
+    - dataset: the dataset as datasets.Dataset instance.
+
+    - relevance: for retrieval tasks, an array specifying whether a sample
+                 is relevant. Class relevance is given as 1, -1, or 0 if it
+                 is not certain whether the label belongs to the class or not.
+                 None for regression tasks.
+    
+    - grid: dictionary mapping hyper-parameter names to lists of values to be tried.
+
+    - init: dictionary mapping hyper-parameter names to initial values.
+
+    - n_folds: number of folds for k-fold cross-validation.
+
+    - fewshot: boolean specifying whether the GP should be trained on the smaller fraction
+               of the data and evaluated on the bigger one instead of the normal
+               k-fold cross-validation.
+    
+    - verbose: verbosity level between 0 and 2.
+
+    # Returns:
+        - dictionary mapping parameter names to the best values found
+        - performance measure obtained with those parameters
+    """
     
     param_names = list(grid.keys())
     cur_params = [init[p] for p in param_names]
@@ -106,7 +177,10 @@ if __name__ == '__main__':
     config_file = None
     overrides = {}
     for arg in sys.argv[1:]:
-        if arg.startswith('--'):
+        if arg.lower() == '--help':
+            config_file = None
+            break
+        elif arg.startswith('--'):
             k, v = arg[2:].split('=', maxsplit = 1)
             overrides[k] = v
         elif config_file is None:
@@ -115,7 +189,25 @@ if __name__ == '__main__':
             print('Unexpected argument: {}'.format(arg))
             exit()
     if config_file is None:
+        print()
+        print('Optimizes GP hyper-parameters for a given dataset using alternating optimization.')
+        print()
         print('Usage: {} <experiment-config-file> [--<override-option>=<override-value> ...]'.format(sys.argv[0]))
+        print()
+        print('The [EXPERIMENT] section of the given config file may specify the following')
+        print('configuration directives to control the optimization:')
+        print()
+        print('     - grid: either "full" to optimize length scale, variance, and noise of the')
+        print('             kernel or "ls_only" to optimize the length scale only (default: full).')
+        print('     - n_folds: number of folds for k-fold cross validation (default: 10).')
+        print('     - few_shot: boolean specifying whether the GP should be trained on the')
+        print('                 smaller fraction of the data and evaluated on the bigger')
+        print('                 one instead of the normal k-fold cross-validation (default: False).')
+        print('     - verbosity: verbosity level between 0 and 2 (default: 1).')
+        print()
+        print('All directives from the [EXPERIMENT] section may also be overriden on the')
+        print('command line by passing --key=value arguments.')
+        print()
         exit()
     
     # Load dataset

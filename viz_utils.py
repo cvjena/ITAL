@@ -257,6 +257,15 @@ def canonicalize_image(img, color = True, channels_first = False):
 
 
 def canonicalize_img_name(img):
+    """ Returns the filename of an image without directory path and file extension.
+
+    # Arguments:
+
+    - img: Either a path to a file or a tuple of length 2 whose second element contains that path.
+
+    # Returns:
+        the filename without directory path and file extension
+    """
     
     if isinstance(img, str):
         return os.path.splitext(os.path.basename(img))[0]

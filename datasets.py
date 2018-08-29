@@ -602,11 +602,13 @@ class ImageNetDataset(MultitaskRetrievalDataset):
     
     
     def __len__(self):
+        """ Returns the number of random binary classification tasks. """
         
         return len(self.selected_synsets)
     
     
     def datasets(self):
+        """ Generator over all random binary classification tasks as RetrievalDataset instances. """
         
         for synsets in self.selected_synsets:
             pos_synset = synsets[0]

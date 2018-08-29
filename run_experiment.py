@@ -14,6 +14,23 @@ from ital.regression_base import ActiveRegressionBase
 
 
 def simulate_retrieval_feedback(labels, ret, label_prob = 0.8, mistake_prob = 0.05):
+    """ Randomly generates relevance feedback for a set of candidate samples.
+    
+    # Arguments:
+
+    - labels: array of true relevance labels for all samples in the dataset, where
+              relevance can be one of 1 (relevant), -1 (irrelevant) or 0 (unknown).
+    
+    - ret: list of indices of candidate samples.
+
+    - label_prob: probability for the event that the user annotates a given sample.
+
+    - mistake_prob: probability for providing an incorrect label.
+
+    # Returns:
+        list of simulated relevance feedback for all samples in `ret` in the same order;
+        user feedback for each sample can be 1, -1, or 0.
+    """
     
     fb = []
     for i in ret:
@@ -31,6 +48,21 @@ def simulate_retrieval_feedback(labels, ret, label_prob = 0.8, mistake_prob = 0.
 
 
 def simulate_regression_feedback(y_true, ret, label_prob = 0.8, mistake_variance = 0.0):
+    """ Randomly generates feedback for a set of candidate samples from a regression task.
+    
+    # Arguments:
+
+    - y_true: array of true target values for all samples in the dataset.
+    
+    - ret: list of indices of candidate samples.
+
+    - label_prob: probability for the event that the user annotates a given sample.
+
+    - mistake_variance: variance of mistakes.
+
+    # Returns:
+        list of simulated feedback for all samples in `ret` in the same order.
+    """
     
     fb = []
     for i in ret:
@@ -45,6 +77,24 @@ def simulate_regression_feedback(y_true, ret, label_prob = 0.8, mistake_variance
 
 
 def run_retrieval_experiment(config, dataset, learner, plot = False, plot_hist = False):
+    """ Runs several simulation rounds for active learning for relevance feedback and prints results.
+
+    # Arguments:
+
+    - config: a configparser.ConfigParser instance defining the parameters of the experiment
+              (see README.md for details).
+
+    - dataset: a datasets.RetrievalDataset instance.
+
+    - learner: an instance of a class derived from ital.retrieval_base.ActiveRetrievalBase
+               implementing the active learning algorithm.
+
+    - plot: if True, the samples selected at each round will be shown after each step.
+            This might be useful mainly for debugging purposes.
+    
+    - plot_hist: if True, histograms of performance measures at each round will be plotted
+                 at the end.
+    """
     
     if isinstance(dataset, MultitaskRetrievalDataset):
         multitask = True
@@ -164,6 +214,24 @@ def run_retrieval_experiment(config, dataset, learner, plot = False, plot_hist =
 
 
 def run_regression_experiment(config, dataset, learner, plot = False, plot_hist = False):
+    """ Runs several simulation rounds for active learning for regression and prints results.
+
+    # Arguments:
+
+    - config: a configparser.ConfigParser instance defining the parameters of the experiment
+              (see README.md for details).
+
+    - dataset: a datasets.RegressionDataset instance.
+
+    - learner: an instance of a class derived from ital.regression_base.ActiveRegressionBase
+               implementing the active learning algorithm.
+
+    - plot: if True, the samples selected at each round will be shown after each step.
+            This might be useful mainly for debugging purposes.
+    
+    - plot_hist: if True, histograms of performance measures at each round will be plotted
+                 at the end.
+    """
     
     # Run multiple rounds of active retrieval with different initializations
     rmses = []
@@ -228,6 +296,9 @@ if __name__ == '__main__':
             plot = True
         elif arg.lower() == '--hist':
             plot_hist = True
+        elif arg.lower() == '--help':
+            config_file = None
+            break
         elif arg.startswith('--'):
             k, v = arg[2:].split('=', maxsplit = 1)
             overrides[k] = v
@@ -237,7 +308,19 @@ if __name__ == '__main__':
             print('Unexpected argument: {}'.format(arg))
             exit()
     if config_file is None:
+        print()
+        print('Runs simulations for an active learning scenario and reports performance measures for each round of feedback.')
+        print()
         print('Usage: {} <experiment-config-file> [--plot] [--hist] [--<override-option>=<override-value> ...]'.format(sys.argv[0]))
+        print()
+        print('The parameters for the experiment have to be defined in a configuration file given as first argument.')
+        print('See README.md for details.')
+        print('However, individual directives from the [EXPERIMENT] section may be overriden on the command line')
+        print('by passing --key=value arguments.')
+        print()
+        print('The flag --plot will enable visualizations after each learning step, mainly for debugging purposes.')
+        print('The flag --hist will show a histogram of the performance measure for each round at the end.')
+        print()
         exit()
     
     if plot or plot_hist:
