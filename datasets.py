@@ -203,6 +203,9 @@ class MultilabelRetrievalDataset(RetrievalDataset):
             else:
                 self.imgs = None
         
+        if 'queries' not in self.__dict__:
+            self.queries = None
+
         self._preprocess()
     
     
@@ -262,6 +265,8 @@ class StoredDataset(RetrievalDataset):
         self.y = np.concatenate((self.y_train, self.y_test))
         
         self.imgs = self.imgs_train = self.imgs_test = None
+        if 'queries' not in self.__dict__:
+            self.queries = None
         
         self._preprocess()
 
@@ -362,6 +367,9 @@ class USPSDataset(RetrievalDataset):
         self.imgs = self.X.reshape(-1, 16, 16)
         self.imgs_train = self.X_train.reshape(-1, 16, 16)
         self.imgs_test = self.X_test.reshape(-1, 16, 16)
+
+        if 'queries' not in self.__dict__:
+            self.queries = None
         
         self._preprocess()
     
