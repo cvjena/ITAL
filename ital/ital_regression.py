@@ -25,11 +25,11 @@ class ITAL_Regression(ActiveRegressionBase):
         
         - y_init: initial training values for the samples in train_init.
         
-        - length_scale: the `sigma` hyper-parameter of the kernel (see documentation of italia.gp.GaussianProcess).
+        - length_scale: the `sigma` hyper-parameter of the kernel (see documentation of ital.gp.GaussianProcess).
         
-        - var: the `var` hyper-parameter of the kernel (see documentation of italia.gp.GaussianProcess).
+        - var: the `var` hyper-parameter of the kernel (see documentation of ital.gp.GaussianProcess).
         
-        - noise: the `sigma_noise` hyper-parameter of the kernel (see documentation of italia.gp.GaussianProcess).
+        - noise: the `sigma_noise` hyper-parameter of the kernel (see documentation of ital.gp.GaussianProcess).
         
         - label_prob: the assumed probability that the user annotates a sample.
         
@@ -96,7 +96,8 @@ class ITAL_Regression(ActiveRegressionBase):
 class MutualInformation(object):
     """ Helper class for ITAL_KL computing mutual information between the value distribution and the feedback distribution of a set of samples.
     
-    \mathrm{MI}(R,F\ |\ A) = \int_{-\infty}^{\infty} { p(F=f\ |\ A) \cdot \mathrm{KL}\Bigl(p(R=r\ |\ F=f,A) \Bigm\| p(R=r\ |\ A)\Bigr) }
+    .. math::
+        \mathrm{MI}(R,F\ |\ A) = \int_{-\infty}^{\infty} { p(F=f\ |\ A) \cdot \mathrm{KL}\Bigl(p(R=r\ |\ F=f,A) \Bigm\| p(R=r\ |\ A)\Bigr) }
     """
     
     def __init__(self, learner, eps = 1e-6):

@@ -9,7 +9,7 @@ from tqdm import tqdm, trange
 
 import utils
 from datasets import RegressionDataset, MultitaskRetrievalDataset
-from italia.gp import GaussianProcess
+from ital.gp import GaussianProcess
 
 
 

@@ -9,7 +9,7 @@ from collections import OrderedDict
 
 import utils, viz_utils
 from datasets import MultitaskRetrievalDataset
-from italia.regression_base import ActiveRegressionBase
+from ital.regression_base import ActiveRegressionBase
 
 
 

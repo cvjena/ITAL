@@ -124,7 +124,7 @@ def plot_learning_step(dataset, queries, relevance, learner, ret, fb):
     
     - relevance: the ground-truth relevance labels of all samples in dataset.X_train.
     
-    - learner: an italia.retrieval_base.ActiveRetrievalBase instance.
+    - learner: an ital.retrieval_base.ActiveRetrievalBase instance.
     
     - ret: the indices of the samples selected for the current active learning batch.
     
@@ -193,7 +193,7 @@ def plot_regression_step(dataset, init, learner, ret, fb):
     
     - init: list of indices of the initial training samples in dataset.X_train.
     
-    - learner: an italia.regression_base.ActiveRegressionBase instance.
+    - learner: an ital.regression_base.ActiveRegressionBase instance.
     
     - ret: the indices of the samples selected for the current active learning batch.
     

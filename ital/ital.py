@@ -24,11 +24,11 @@ class ITAL(ActiveRetrievalBase):
         
         - queries: list of query data points to initially fit the GP to. If empty, the GP will not be fitted.
         
-        - length_scale: the `sigma` hyper-parameter of the kernel (see documentation of italia.gp.GaussianProcess).
+        - length_scale: the `sigma` hyper-parameter of the kernel (see documentation of ital.gp.GaussianProcess).
         
-        - var: the `var` hyper-parameter of the kernel (see documentation of italia.gp.GaussianProcess).
+        - var: the `var` hyper-parameter of the kernel (see documentation of ital.gp.GaussianProcess).
         
-        - noise: the `sigma_noise` hyper-parameter of the kernel (see documentation of italia.gp.GaussianProcess).
+        - noise: the `sigma_noise` hyper-parameter of the kernel (see documentation of ital.gp.GaussianProcess).
         
         - label_prob: the assumed probability that the user annotates a sample.
         

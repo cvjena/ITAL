@@ -18,11 +18,11 @@ class ActiveRetrievalBase(object):
         
         - queries: list of query data points to initially fit the GP to. If empty, the GP will not be fitted.
         
-        - length_scale: the `sigma` hyper-parameter of the kernel (see documentation of italia.gp.GaussianProcess).
+        - length_scale: the `sigma` hyper-parameter of the kernel (see documentation of ital.gp.GaussianProcess).
         
-        - var: the `var` hyper-parameter of the kernel (see documentation of italia.gp.GaussianProcess).
+        - var: the `var` hyper-parameter of the kernel (see documentation of ital.gp.GaussianProcess).
         
-        - noise: the `sigma_noise` hyper-parameter of the kernel (see documentation of italia.gp.GaussianProcess).
+        - noise: the `sigma_noise` hyper-parameter of the kernel (see documentation of ital.gp.GaussianProcess).
         """
         
         self.length_scale = length_scale
@@ -152,7 +152,7 @@ class ActiveRetrievalBase(object):
         
         rel, irr, _ = self.partition_feedback(feedback)
         if len(rel) + len(irr) == 0:
-            return self.predict_stored(test_ind, cov_mode=cov_mode)
+            return self.gp.predict_stored(test_ind, cov_mode=cov_mode)
         else:
             rel.sort()
             irr.sort()

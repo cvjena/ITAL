@@ -55,11 +55,11 @@ class AdaptAL(ActiveRetrievalBase):
         
         - queries: list of query data points to initially fit the GP to. If empty, the GP will not be fitted.
         
-        - length_scale: the `sigma` hyper-parameter of the kernel (see documentation of italia.gp.GaussianProcess).
+        - length_scale: the `sigma` hyper-parameter of the kernel (see documentation of ital.gp.GaussianProcess).
         
-        - var: the `var` hyper-parameter of the kernel (see documentation of italia.gp.GaussianProcess).
+        - var: the `var` hyper-parameter of the kernel (see documentation of ital.gp.GaussianProcess).
         
-        - noise: the `sigma_noise` hyper-parameter of the kernel (see documentation of italia.gp.GaussianProcess).
+        - noise: the `sigma_noise` hyper-parameter of the kernel (see documentation of ital.gp.GaussianProcess).
         
         - subsample: if set to a positive integer, the set of candidates will be restricted to a random subsample
                      of unlabeled instance of the given size.

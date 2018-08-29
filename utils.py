@@ -4,7 +4,7 @@ import math
 
 import numpy as np
 
-from italia import *
+from ital import *
 from datasets import load_dataset, RetrievalDataset, MultitaskRetrievalDataset, RegressionDataset
 
 
@@ -92,8 +92,8 @@ def load_config(config_file, section, overrides = {}):
         a (parser, dataset, learner) tuple whose individual components are:
         - parser: a configparser.ConfigParser instance,
         - dataset: a dataset.Dataset instance,
-        - learner: either an italia.retrieval_base.ActiveRetrievalBase instance, an
-                   italia.regression_base.ActiveRegressionBase instance.
+        - learner: either an ital.retrieval_base.ActiveRetrievalBase instance, an
+                   ital.regression_base.ActiveRegressionBase instance.
                    The learner is usually initialized with the data from the dataset,
                    except in the case of a MultitaskDataset, where an uninitialized
                    learner will be returned.

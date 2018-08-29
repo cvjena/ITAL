@@ -20,11 +20,11 @@ class ActiveRegressionBase(object):
         
         - y_init: initial training values for the samples in train_init.
         
-        - length_scale: the `sigma` hyper-parameter of the kernel (see documentation of italia.gp.GaussianProcess).
+        - length_scale: the `sigma` hyper-parameter of the kernel (see documentation of ital.gp.GaussianProcess).
         
-        - var: the `var` hyper-parameter of the kernel (see documentation of italia.gp.GaussianProcess).
+        - var: the `var` hyper-parameter of the kernel (see documentation of ital.gp.GaussianProcess).
         
-        - noise: the `sigma_noise` hyper-parameter of the kernel (see documentation of italia.gp.GaussianProcess).
+        - noise: the `sigma_noise` hyper-parameter of the kernel (see documentation of ital.gp.GaussianProcess).
         """
         
         self.length_scale = length_scale
@@ -144,7 +144,7 @@ class ActiveRegressionBase(object):
         
         ind, val, _ = self.labeled_feedback(feedback)
         if len(ind) == 0:
-            return self.predict_stored(test_ind, cov_mode = cov_mode)
+            return self.gp.predict_stored(test_ind, cov_mode = cov_mode)
         else:
             ind.sort()
             return self.gp.updated_prediction(ind, val, test_ind, cov_mode = cov_mode)
