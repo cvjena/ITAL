@@ -78,28 +78,30 @@ learner.update(feedback)
 
 ### Other learners
 
-Besides ITAL, we also provide implementations of several other popular active learning techniques with an identical API as described above in the module `ital.baseline_methods`.
+Besides ITAL, we also provide implementations of several other popular active learning techniques with an identical API as described above in the module [`ital.baseline_methods`](ital/baseline_methods.py).
 Especially `BorderlineDiversitySampling` and `TCAL` might also be worth a try, since they are the second-best and third-best performers after ITAL, but faster.
 
 
 ## Running Automated Experiments
 
-The script `run_experiment.py` can be used to automatically generate a number of query scenarios and perform active learning with simulated user feedback to benchmark different methods.
+The script [`run_experiment.py`](run_experiment.py) can be used to automatically generate a number of query scenarios and perform active learning with simulated user feedback to benchmark different methods.
 It takes a path to a configuration file as argument, which must contain a section `[EXPERIMENT]` specifying the following directives:
 
-- `dataset` (string, required): the type of the dataset to be used corresponding to one of the classes defined in `datasets.py`, but without the `Dataset` suffix (e.g., `USPS` for the `USPSDataset` class).
-- `method` (string, required): the name of the active learning method to be used. Possible values can be found among the keys of the dictionary `utils.LEARNERS`.
-- `repetitions` (int, default: 10): number of experiments with different random queries per class. Results will be averaged over repetitions.
-- `rounds` (int, default: 10): number of iterative feedback rounds.
-- `batch_size` (int, required): number of candidates to fetch for each feedback round.
-- `num_init` (int, default: 1): number of initial positive samples per query.
-- `initial_negatives` (int, default: 0): number of initial negative samples per query.
-- `label_prob` (float, default: 1.0): probability for the event that the user gives feedback regarding a particular candidate sample.
-- `mistake_prob` (float, default: 0.0): probability that the user provides the wrong label (given that a label is provided at all).
-- `query_classes` (string, optional): space-separated list of classes to draw query images from. If not specified, all classes will be used.
-- `avg_class_perf` (boolean, default: no): whether to report performance averaged over all classes or for each class individually.
+| Directive | Type | Required? | Default | Description |
+|-----------|------|:---------:|:-------:|-------------|
+| `dataset` | string | yes | | The type of the dataset to be used corresponding to one of the classes defined in [`datasets.py`](datasets.py), but without the `Dataset` suffix (e.g., `USPS` for the `USPSDataset` class). |
+| `method` | string | yes | | The name of the active learning method to be used. Possible values can be found among the keys of the dictionary `utils.LEARNERS`. |
+| `repetitions` | int | no | 10 | Number of experiments with different random queries per class. Results will be averaged over repetitions. |
+| `rounds` | int | no | 10 | Number of iterative feedback rounds. |
+| `batch_size` | int | yes | | Number of candidates to fetch for each feedback round.
+| `num_init` | int | no | 1 | Number of initial positive samples per query. |
+| `initial_negatives` | int | no | 0 | Number of initial negative samples per query. |
+| `label_prob` | float | no | 1.0 | Probability for the event that the user gives feedback regarding a particular candidate sample. |
+| `mistake_prob` | float | no | 0.0 | Probability that the user provides a wrong label (given that a label is provided at all). |
+| `query_classes` | string | no | | Space-separated list of classes to draw query images from. If not specified, all classes will be used. |
+| `avg_class_perf` | boolean | no | no | Whether to report performance averaged over all classes or for each class individually. |
 
-These directives can also be overridden on the command-line by passing `--key=value` arguments to `run_experiment.py`.
+These directives can also be overridden on the command-line by passing `--key=value` arguments to [`run_experiment.py`](run_experiment.py).
 
 In addition, each config file must contain a section with the same name as the value for `dataset` which provides the keyword arguments for the constructor of the dataset interface class.
 
@@ -109,7 +111,7 @@ Default values to be applied to all learning methods (e.g., hyper-parameters of 
 
 ## Reproducing the Experiments from the Paper
 
-The results reported in the paper have been obtained by running the script `run_experiment.py` on the configuration files in the `configs` directory, in particular:
+The results reported in the paper have been obtained by running the script [`run_experiment.py`](run_experiment.py) on the configuration files in the [`configs`](configs/) directory, in particular:
 
 - [`configs/butterflies.conf`](configs/butterflies.conf)
 - [`configs/usps.conf`](configs/usps.conf)
