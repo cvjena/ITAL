@@ -117,17 +117,22 @@ class ITAL(ActiveRetrievalBase):
         # Greedy batch construction
         mutual_information = AppendedMutualInformation(self)
         steps = trange(k) if show_progress else range(k)
+
+        if self.parallelized:
+            pool = Pool(initializer=_init_pool, initargs=(mutual_information,))
+
         for it in steps:
-            
             if self.parallelized and (it > 0):
-                with Pool(initializer = _init_pool, initargs = (mutual_information,)) as p:
-                    mi = p.map(_parallel_mi, candidates)
+                mi = pool.map(_parallel_mi, candidates)
             else:
                 mi = [mutual_information(i) for i in candidates]
-            
+    
             max_ind = np.argmax(mi)
             mutual_information.append(candidates[max_ind])
             del candidates[max_ind]
+
+        if self.parallelized:
+            pool.close()
         
         return mutual_information.ret
 
