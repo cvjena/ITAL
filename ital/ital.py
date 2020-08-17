@@ -119,7 +119,7 @@ class ITAL(ActiveRetrievalBase):
         steps = trange(k) if show_progress else range(k)
         for it in steps:
             
-            if self.parallelized and (it > 0):
+            if self.parallelized:
                 with Pool(initializer = _init_pool, initargs = (mutual_information,)) as p:
                     mi = p.map(_parallel_mi, candidates)
             else:
