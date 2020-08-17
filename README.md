@@ -75,6 +75,17 @@ Then, we can obtain relevance feedback from the user and assign one of the follo
 learner.update(feedback)
 ```
 
+### A note on parallelization
+
+By default, ITAL parallelizes the computation of mutual information over multiple processes.
+However, NumPy also uses multithreading for the computations in each process, so that the parallel processes are busy fighting for CPU cores most of the time.
+
+Thus, if you use parallelization (`parallelized` is set to `True` in the `ITAL` constructor), it is recommended to disable NumPy multithreading by setting the following environment variables to `'1'`:
+
+- `MKL_NUM_THREADS`
+- `OMP_NUM_THREADS`
+- `OPENBLAS_NUM_THREADS`
+
 
 ### Other learners
 

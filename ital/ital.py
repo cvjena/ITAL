@@ -64,7 +64,9 @@ class ITAL(ActiveRetrievalBase):
                               with monte_carlo_num_fb.
         
         - parallelized: if set to True, mutual information for a set of candidate samples will be computed
-                        in parallel using multiprocessing.
+                        in parallel using multiprocessing. If you want to use multiprocessing, you should
+                        disable the additional parallelization of NumPy by setting the following environment
+                        variables to '1': `OMP_NUM_THREADS`, `MKL_NUM_THREADS`, `OPENBLAS_NUM_THREADS`.
         """
         
         ActiveRetrievalBase.__init__(self, data, queries, length_scale, var, noise)
